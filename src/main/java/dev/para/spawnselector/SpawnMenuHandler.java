@@ -166,50 +166,40 @@ public final class SpawnMenuHandler {
         int minY = level.getMinY() + 1;
         int maxY = level.getMaxY() - 2;
 
-        // Try many random columns, then inspect nearby Y levels instead of trusting
-        // the heightmap's single result (custom Earth generators can return odd heights).
-        for (int attempt = 0; attempt < 128; attempt++) {
+        // Do not trust heightmap values: custom Earth world generators may return
+        // invalid heights. Generate/load each candidate chunk, then inspect real blocks.
+        for (int attempt = 0; attempt < 32; attempt++) {
             int x = random.nextInt(FREE_SPAWN_CENTER_X - FREE_SPAWN_SPREAD,
                     FREE_SPAWN_CENTER_X + FREE_SPAWN_SPREAD + 1);
             int z = random.nextInt(FREE_SPAWN_CENTER_Z - FREE_SPAWN_SPREAD,
                     FREE_SPAWN_CENTER_Z + FREE_SPAWN_SPREAD + 1);
             try {
-                int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                if (surfaceY < minY || surfaceY > maxY) {
-                    SpawnSelectorMod.LOGGER.debug(
-                            "Heightmap вернул Y={} вне подходящего диапазона для свободного спавна X={}, Z={}.",
-                            surfaceY, x, z);
-                    continue;
-                }
+                level.getChunk(x >> 4, z >> 4);
+                for (int y = maxY; y >= minY; y--) {
+                    BlockPos feet = new BlockPos(x, y, z);
+                    BlockPos head = feet.above();
+                    BlockPos floor = feet.below();
+                    var feetState = level.getBlockState(feet);
+                    var headState = level.getBlockState(head);
+                    var floorState = level.getBlockState(floor);
 
-                // Check the heightmap result first, then a few blocks around it.
-                for (int offset = 0; offset <= 4; offset++) {
-                    int[] candidates = offset == 0
-                            ? new int[]{surfaceY}
-                            : new int[]{surfaceY - offset, surfaceY + offset};
-                    for (int y : candidates) {
-                        if (y < minY || y > maxY) continue;
-                        BlockPos feet = new BlockPos(x, y, z);
-                        BlockPos head = feet.above();
-                        BlockPos floor = feet.below();
-                        var feetState = level.getBlockState(feet);
-                        var headState = level.getBlockState(head);
-                        var floorState = level.getBlockState(floor);
+                    if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
+                    if (!feetState.getCollisionShape(level, feet).isEmpty()
+                            || !headState.getCollisionShape(level, head).isEmpty()) continue;
+                    if (!floorState.getFluidState().isEmpty()
+                            || floorState.getCollisionShape(level, floor).isEmpty()) continue;
 
-                        if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
-                        if (!feetState.getCollisionShape(level, feet).isEmpty()
-                                || !headState.getCollisionShape(level, head).isEmpty()) continue;
-                        if (!floorState.getFluidState().isEmpty()
-                                || floorState.getCollisionShape(level, floor).isEmpty()) continue;
-
-                        return feet;
-                    }
+                    // Found an actual clear two-block-tall space immediately above a floor.
+                    SpawnSelectorMod.LOGGER.info("Безопасный свободный спавн найден: X={}, Y={}, Z={} (попытка {}).",
+                            x, y, z, attempt + 1);
+                    return feet;
                 }
             } catch (RuntimeException e) {
-                SpawnSelectorMod.LOGGER.debug("Пропускаю точку свободного спавна X={}, Z={} из-за ошибки проверки.", x, z, e);
+                SpawnSelectorMod.LOGGER.warn("Ошибка проверки свободного спавна X={}, Z={} (попытка {}).",
+                        x, z, attempt + 1, e);
             }
         }
-        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн после 128 попыток в области X={}±{}, Z={}±{}.",
+        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн после 32 попыток в области X={}±{}, Z={}±{}.",
                 FREE_SPAWN_CENTER_X, FREE_SPAWN_SPREAD, FREE_SPAWN_CENTER_Z, FREE_SPAWN_SPREAD);
         return null;
     }
