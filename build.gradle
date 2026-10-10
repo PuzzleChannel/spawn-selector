@@ -12,6 +12,12 @@ base {
 
 loom {
     splitEnvironmentSourceSets()
+    mods {
+        "spawnselector" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
 }
 
 repositories {
