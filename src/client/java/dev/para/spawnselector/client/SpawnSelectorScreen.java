@@ -97,7 +97,13 @@ public class SpawnSelectorScreen extends Screen {
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
         try {
             if (net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(id).isPresent()) {
-                g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 640, 360);
+                if ("free_survival.png".equals(image)) {
+                    // This built-in texture is 320x180; center it without cropping.
+                    g.blit(RenderPipelines.GUI_TEXTURED, id, x + (w - 320) / 2, y + (h - 180) / 2,
+                            0, 0, 320, 180, 320, 180);
+                } else {
+                    g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 640, 360);
+                }
             }
         } catch (RuntimeException ignored) {
             // The built-in pixel-art placeholder remains visible when an optional image is absent.
