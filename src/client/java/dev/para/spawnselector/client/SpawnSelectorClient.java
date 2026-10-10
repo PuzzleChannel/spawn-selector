@@ -24,13 +24,13 @@ public class SpawnSelectorClient implements ClientModInitializer {
                             item.get("count").getAsInt(), item.get("max").getAsInt(), item.get("color").getAsString()));
                 }
                 String message = root.has("message") ? root.get("message").getAsString() : "";
-                context.client().setScreen(new SpawnSelectorScreen(teams, message));
+                context.client().gui.setScreen(new SpawnSelectorScreen(teams, message));
             } catch (Exception e) {
-                context.client().setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список команд."));
+                context.client().gui.setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список команд."));
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE,
-                (payload, context) -> context.client().setScreen(null));
+                (payload, context) -> context.client().gui.setScreen(null));
     }
 
     public record SpawnTeamView(String name, String description, String image, int count, int max, String color) {
