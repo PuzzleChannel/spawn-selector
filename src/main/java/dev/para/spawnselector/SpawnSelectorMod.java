@@ -15,10 +15,10 @@ public class SpawnSelectorMod implements ModInitializer {
     @Override public void onInitialize() {
         LOGGER.info("Инициализация Spawn Selector...");
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
-        PayloadTypeRegistry.playS2C().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(SpawnPayloads.Choose.TYPE, (payload, context) ->
-                context.player().server.execute(() ->
+                ((net.minecraft.server.level.ServerLevel) context.player().level()).getServer().execute(() ->
                         SpawnMenuHandler.handleSpawnSelection(context.player(), payload.index())));
         SpawnConfig.load();
         SpawnData.load();
