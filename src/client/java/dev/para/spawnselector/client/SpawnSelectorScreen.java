@@ -3,7 +3,9 @@ package dev.para.spawnselector.client;
 import dev.para.spawnselector.client.SpawnSelectorClient.SpawnTeamView;
 import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -23,7 +25,7 @@ public class SpawnSelectorScreen extends Screen {
         this.message = message == null ? "" : message;
     }
 
-    @Override public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    @Override public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         g.fill(0, 0, width, height, 0xB9000000);
         panelW = Math.max(280, Math.min(760, width - 24));
         panelH = Math.max(250, Math.min(440, height - 20));
@@ -33,8 +35,8 @@ public class SpawnSelectorScreen extends Screen {
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF373737);
         g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
         g.fill(panelX + 8, panelY + 8, panelX + panelW - 8, panelY + 34, 0xFF4C3825);
-        g.drawCenteredString(font, "ВЫБОР МЕСТА ПОЯВЛЕНИЯ", width / 2, panelY + 16, 0xFFFFD46A);
-        g.drawCenteredString(font, "Выберите команду или свободное выживание", width / 2, panelY + 43, 0xFFE0E0E0);
+        drawCentered(g, "ВЫБОР МЕСТА ПОЯВЛЕНИЯ", width / 2, panelY + 16, 0xFFFFD46A);
+        drawCentered(g, "Выберите команду или свободное выживание", width / 2, panelY + 43, 0xFFE0E0E0);
 
         int leftX = panelX + 14;
         int leftW = Math.min(246, panelW / 2 - 22);
@@ -48,17 +50,17 @@ public class SpawnSelectorScreen extends Screen {
             g.fill(leftX - 2, y - 2, leftX + leftW + 2, y + cardH + 2, over ? 0xFFFFD46A : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, over ? 0xFF51452E : 0xFF303030);
             g.fill(leftX + 5, y + 5, leftX + 11, y + cardH - 5, teamColor(teams.get(i).color()));
-            g.drawString(font, clip(teams.get(i).name(), leftW - 30), leftX + 18, y + 8, 0xFFFFFFFF);
-            g.drawString(font, teams.get(i).countText(), leftX + 18, y + 24, 0xFFBEBEBE);
-            g.drawString(font, "Нажмите для выбора", leftX + 18, y + cardH - 15, 0xFFFFD46A);
+            g.text(font, clip(teams.get(i).name(), leftW - 30), leftX + 18, y + 8, 0xFFFFFFFF, true);
+            g.text(font, teams.get(i).countText(), leftX + 18, y + 24, 0xFFBEBEBE, true);
+            g.text(font, "Нажмите для выбора", leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
         }
 
         int freeY = cardY + 3 * (cardH + 7) + 2;
         boolean freeOver = inside(mouseX, mouseY, leftX, freeY, leftW, 40);
         g.fill(leftX - 2, freeY - 2, leftX + leftW + 2, freeY + 42, freeOver ? 0xFFFFD46A : 0xFF777777);
         g.fill(leftX, freeY, leftX + leftW, freeY + 40, freeOver ? 0xFF315043 : 0xFF303030);
-        g.drawCenteredString(font, "Свободное выживание", leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
-        g.drawCenteredString(font, "Случайная безопасная суша", leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
+        drawCentered(g, "Свободное выживание", leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
+        drawCentered(g, "Случайная безопасная суша", leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
 
         int previewX = leftX + leftW + 16;
         int previewW = Math.max(80, panelX + panelW - 14 - previewX);
@@ -70,16 +72,16 @@ public class SpawnSelectorScreen extends Screen {
             SpawnTeamView team = teams.get(hovered);
             drawPreviewImage(g, team.image(), previewX, previewY, previewW, previewH);
             int textY = previewY + previewH + 10;
-            g.drawString(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A);
+            g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
             drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 35);
-            g.drawString(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE);
+            g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
         } else {
-            g.drawCenteredString(font, "Наведите на команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
-            g.drawCenteredString(font, "чтобы посмотреть местность", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
+            drawCentered(g, "Наведите на команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
+            drawCentered(g, "чтобы посмотреть местность", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
         }
         if (!message.isBlank()) g.drawCenteredString(font, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
         else if (sending) g.drawCenteredString(font, "Проверяем доступность точки…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
     private void drawPreviewImage(GuiGraphics g, String image, int x, int y, int w, int h) {
@@ -88,7 +90,7 @@ public class SpawnSelectorScreen extends Screen {
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
         try {
             if (net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(id).isPresent()) {
-                g.blit(id, x, y, 0, 0, w, h, 640, 360);
+                g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 640, 360);
             }
         } catch (RuntimeException ignored) {
             // The built-in pixel-art placeholder remains visible when an optional image is absent.
@@ -133,6 +135,10 @@ public class SpawnSelectorScreen extends Screen {
         if (!line.isEmpty() && lineY <= bottom) g.drawString(font, line.toString(), x, lineY, color);
     }
 
+    private void drawCentered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
+        g.text(font, text, centerX - font.width(text) / 2, y, color, true);
+    }
+
     private String clip(String text, int maxWidth) {
         if (text == null) return "";
         if (font.width(text) <= maxWidth) return text;
@@ -143,8 +149,10 @@ public class SpawnSelectorScreen extends Screen {
     private static boolean inside(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
-    @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0 || sending) return false;
+    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() != 0 || sending) return false;
         int leftX = panelX + 14;
         int leftW = Math.min(246, panelW / 2 - 22);
         int cardY = panelY + 66;
@@ -155,7 +163,7 @@ public class SpawnSelectorScreen extends Screen {
         }
         int freeY = cardY + 3 * (cardH + 7) + 2;
         if (inside(mouseX, mouseY, leftX, freeY, leftW, 40)) { sendChoice(3); return true; }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
     private void sendChoice(int index) {
         sending = true; message = "";
