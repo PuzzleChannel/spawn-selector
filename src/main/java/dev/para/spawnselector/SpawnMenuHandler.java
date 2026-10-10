@@ -29,6 +29,8 @@ public final class SpawnMenuHandler {
     private static final int FREE_SPAWN_MIN = -10_000;
     private static final int FREE_SPAWN_MAX = 10_000;
     private static final int FREE_SPAWN_ATTEMPTS = 64;
+    private static final int LOCAL_SPAWN_RADIUS = 16;
+    private static final int LOCAL_SPAWN_ATTEMPTS = 128;
 
     private SpawnMenuHandler() {}
 
@@ -85,7 +87,7 @@ public final class SpawnMenuHandler {
 
         // Fourth choice is independent survival: it receives a safe random land spawn but no team.
         if (spawnIndex == 3) {
-            BlockPos safe = findRandomLandSpawn(level);
+            BlockPos safe = findRandomLandSpawn(player, level);
             if (safe == null) {
                 reject(player, "Не удалось найти безопасную сушу в радиусе ±10 000 блоков. Попробуйте ещё раз.");
                 return;
@@ -166,7 +168,29 @@ public final class SpawnMenuHandler {
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
     }
 
-    private static BlockPos findRandomLandSpawn(ServerLevel level) {
+    private static BlockPos findRandomLandSpawn(ServerPlayer player, ServerLevel level) {
+        // First preserve the island/land the player is already standing on. This is
+        // especially important for Earth maps where most random X/Z samples are ocean.
+        if (player.level() instanceof ServerLevel playerLevel
+                && playerLevel.dimension().equals(level.dimension())) {
+            BlockPos current = player.blockPosition();
+            if (isSafeSpawnPosition(level, current)) {
+                SpawnSelectorMod.LOGGER.info("Для свободного спавна игрока {} использована текущая безопасная позиция {}.",
+                        player.getGameProfile().name(), current);
+                return current;
+            }
+
+            // If the exact position is unsafe (edge, plant, shallow water), search the nearby island first.
+            BlockPos nearby = findLandNear(level, current.getX(), current.getZ(),
+                    LOCAL_SPAWN_RADIUS, LOCAL_SPAWN_ATTEMPTS);
+            if (nearby != null) {
+                SpawnSelectorMod.LOGGER.info("Для свободного спавна игрока {} найдена суша рядом с текущей позицией: {}.",
+                        player.getGameProfile().name(), nearby);
+                return nearby;
+            }
+        }
+
+        // Only use the global random search when no safe local land is available.
         ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < FREE_SPAWN_ATTEMPTS; i++) {
             int x = random.nextInt(FREE_SPAWN_MIN, FREE_SPAWN_MAX + 1);
@@ -174,6 +198,8 @@ public final class SpawnMenuHandler {
             BlockPos candidate = findLandNear(level, x, z, 0, 1);
             if (candidate != null) return candidate;
         }
+        SpawnSelectorMod.LOGGER.warn("Не найдена безопасная суша для свободного спавна игрока {}. Текущая позиция: {} {} {}.",
+                player.getGameProfile().name(), player.getX(), player.getY(), player.getZ());
         return null;
     }
 
@@ -196,20 +222,26 @@ public final class SpawnMenuHandler {
             }
             if (y <= level.getMinY() || y + 1 >= level.getMaxY()) continue;
             BlockPos feet = new BlockPos(x, y, z);
-            BlockPos head = feet.above();
-            BlockPos floor = feet.below();
-            var floorState = level.getBlockState(floor);
-            var feetState = level.getBlockState(feet);
-            var headState = level.getBlockState(head);
-            if (!floorState.blocksMotion() || floorState.liquid()
-                    || feetState.blocksMotion() || feetState.liquid()
-                    || headState.blocksMotion() || headState.liquid()
-                    || isHazard(floorState.getBlock()) || isHazard(feetState.getBlock()) || isHazard(headState.getBlock())) {
-                continue;
-            }
-            return feet;
+            if (isSafeSpawnPosition(level, feet)) return feet;
         }
         return null;
+    }
+
+    private static boolean isSafeSpawnPosition(ServerLevel level, BlockPos feet) {
+        if (feet.getY() <= level.getMinY() || feet.getY() + 1 >= level.getMaxY()) return false;
+
+        BlockPos head = feet.above();
+        BlockPos floor = feet.below();
+        var floorState = level.getBlockState(floor);
+        var feetState = level.getBlockState(feet);
+        var headState = level.getBlockState(head);
+
+        return floorState.blocksMotion() && !floorState.liquid()
+                && !feetState.blocksMotion() && !feetState.liquid()
+                && !headState.blocksMotion() && !headState.liquid()
+                && !isHazard(floorState.getBlock())
+                && !isHazard(feetState.getBlock())
+                && !isHazard(headState.getBlock());
     }
 
     private static boolean isHazard(net.minecraft.world.level.block.Block block) {
