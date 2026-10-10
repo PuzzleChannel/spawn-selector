@@ -98,11 +98,12 @@ public final class SpawnMenuHandler {
                 return;
             }
             if (y <= level.getMinY() || y >= level.getMaxY()) {
+                int invalidHeight = y;
                 int fallbackY = level.getSeaLevel() + 1;
                 y = Math.max(level.getMinY() + 1, Math.min(level.getMaxY() - 2, fallbackY));
                 SpawnSelectorMod.LOGGER.warn(
                         "Heightmap вернул недопустимую высоту для свободного спавна X={}, Z={} (Y={}); использую резервную Y={}.",
-                        x, z, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), y);
+                        x, z, invalidHeight, y);
             }
             BlockPos destination = new BlockPos(x, y, z);
             if (!teleportAndSetRespawn(player, level, destination, 0.0f)) {
