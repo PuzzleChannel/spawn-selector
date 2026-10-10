@@ -221,12 +221,12 @@ public final class SpawnMenuHandler {
         String name = player.getGameProfile().name();
         String teleport = "tp " + name + " " + pos.getX() + ".5 " + pos.getY() + " " + pos.getZ()
                 + ".5 " + yaw + " 0";
-        int tpResult = server.getCommands().performPrefixedCommand(
-                server.createCommandSourceStack().withSuppressedOutput(), teleport);
+        int tpResult = server.getCommands().getDispatcher().execute(
+                teleport, server.createCommandSourceStack().withSuppressedOutput());
         if (tpResult == 0) return false;
-        int spawnResult = server.getCommands().performPrefixedCommand(
-                server.createCommandSourceStack().withSuppressedOutput(),
-                "spawnpoint " + name + " " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
+        int spawnResult = server.getCommands().getDispatcher().execute(
+                "spawnpoint " + name + " " + pos.getX() + " " + pos.getY() + " " + pos.getZ(),
+                server.createCommandSourceStack().withSuppressedOutput());
         return spawnResult != 0;
     }
 }
