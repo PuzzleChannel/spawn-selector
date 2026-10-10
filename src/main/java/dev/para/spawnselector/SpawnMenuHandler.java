@@ -95,8 +95,6 @@ public final class SpawnMenuHandler {
             }
             OPEN_MENUS.remove(player.getUUID());
             SpawnData.markSpawnSelected(player);
-            player.sendSystemMessage(Component.literal("Вы выбрали свободное выживание. Зона бомжей: "
-                    + destination.getX() + " " + destination.getY() + " " + destination.getZ()));
             ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
             return;
         }
@@ -157,7 +155,6 @@ public final class SpawnMenuHandler {
 
         OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
-        player.sendSystemMessage(Component.literal("Вы выбрали команду «" + spawn.name + "». Добро пожаловать!"));
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
     }
 
