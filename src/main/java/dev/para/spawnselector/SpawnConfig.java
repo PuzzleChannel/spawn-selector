@@ -80,9 +80,9 @@ public class SpawnConfig {
 
     private static void createDefault() {
         spawnPoints = new ArrayList<>(List.of(
-            new SpawnPoint("Лесная долина", "Зелёная долина у леса. Подходит для спокойного старта и сбора ресурсов.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "team1", "green"),
-            new SpawnPoint("Равнинное поселение", "Открытая равнина для строительства базы и развития поселения.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "team2", "blue"),
-            new SpawnPoint("Горное плато", "Высокогорная местность с обзором и доступом к каменным ресурсам.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "team3", "gold")
+            new SpawnPoint("Лесная долина", "Лес рядом, вокруг есть место для первых построек.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "team1", "green"),
+            new SpawnPoint("Равнинное поселение", "Ровное место для базы, полей и поселения.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "team2", "blue"),
+            new SpawnPoint("Горное плато", "Горы, камень и хороший обзор окрестностей.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "team3", "gold")
         ));
         radius = 10;
         maxPlayersPerTeam = 0;
