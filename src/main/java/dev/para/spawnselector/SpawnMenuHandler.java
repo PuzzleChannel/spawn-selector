@@ -1,58 +1,112 @@
 package dev.para.spawnselector;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.network.chat.Component;
 
-public class SpawnMenuHandler {
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+
+public final class SpawnMenuHandler {
+    private static final Gson GSON = new GsonBuilder().create();
+    private static final Set<UUID> OPEN_MENUS = new HashSet<>();
+    private static final int FREE_SPAWN_MIN = -10_000;
+    private static final int FREE_SPAWN_MAX = 10_000;
+    private static final int FREE_SPAWN_ATTEMPTS = 64;
+
+    private SpawnMenuHandler() {}
+
     public static void register() {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayer player = handler.getPlayer();
             if (!SpawnData.hasSelectedSpawn(player)) server.execute(() -> openMenu(player));
         });
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                OPEN_MENUS.remove(handler.getPlayer().getUUID()));
     }
 
     public static void openMenu(ServerPlayer player) {
         if (player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
-        player.openMenu(new SimpleMenuProvider(
-                (id, inventory, p) -> new SpawnSelectorMenu(id, inventory, p),
-                Component.literal("Выбор команды")
-        ));
+        OPEN_MENUS.add(player.getUUID());
+        sendMenu(player, "");
     }
 
-    public static int getTeamCount(String teamName) {
-        if (teamName == null) return 0;
-        var server = net.fabricmc.loader.api.FabricLoader.getInstance();
-        // Counts are calculated from the live scoreboard on the server thread by the caller.
-        // This helper is intentionally only used while a menu is being built for a connected player.
-        return 0;
+    private static void sendMenu(ServerPlayer player, String message) {
+        JsonObject root = new JsonObject();
+        JsonArray teams = new JsonArray();
+        var server = player.getServer();
+        var scoreboard = server == null ? null : server.getScoreboard();
+        for (int i = 0; i < Math.min(3, SpawnConfig.spawnPoints.size()); i++) {
+            SpawnConfig.SpawnPoint point = SpawnConfig.spawnPoints.get(i);
+            JsonObject team = new JsonObject();
+            team.addProperty("name", point.name);
+            team.addProperty("description", point.description == null ? "" : point.description);
+            team.addProperty("image", point.image == null ? "" : point.image);
+            var scoreboardTeam = scoreboard == null ? null : scoreboard.getPlayerTeam(point.team);
+            team.addProperty("count", scoreboardTeam == null ? 0 : scoreboardTeam.getPlayers().size());
+            team.addProperty("max", SpawnConfig.maxPlayersPerTeam);
+            team.addProperty("color", point.color == null ? "" : point.color);
+            teams.add(team);
+        }
+        root.add("teams", teams);
+        root.addProperty("message", message == null ? "" : message);
+        ServerPlayNetworking.send(player, new SpawnPayloads.OpenMenu(GSON.toJson(root)));
+    }
+
+    private static void reject(ServerPlayer player, String message) {
+        player.sendSystemMessage(Component.literal(message));
+        sendMenu(player, message);
     }
 
     public static void handleSpawnSelection(ServerPlayer player, int spawnIndex) {
         if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
-        if (!(player.containerMenu instanceof SpawnSelectorMenu)) return;
+        if (!OPEN_MENUS.contains(player.getUUID())) return;
+        ServerLevel level = player.serverLevel();
+        var server = player.getServer();
+        if (server == null) return;
 
+        // Fourth choice is independent survival: it receives a safe random land spawn but no team.
         if (spawnIndex == 3) {
+            BlockPos safe = findRandomLandSpawn(level);
+            if (safe == null) {
+                reject(player, "Не удалось найти безопасную сушу в радиусе ±10 000 блоков. Попробуйте ещё раз.");
+                return;
+            }
+            if (!teleportAndSetRespawn(player, level, safe, 0.0f)) {
+                reject(player, "Не удалось установить точку появления. Попробуйте ещё раз.");
+                return;
+            }
+            OPEN_MENUS.remove(player.getUUID());
             SpawnData.markSpawnSelected(player);
-            player.sendSystemMessage(Component.literal("Вы решили начать без команды. Удачи в выживании!"));
-            player.closeContainer();
+            player.sendSystemMessage(Component.literal("Вы выбрали свободное выживание. Начальная точка: "
+                    + safe.getX() + " " + safe.getY() + " " + safe.getZ()));
+            ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
             return;
         }
+
         if (spawnIndex < 0 || spawnIndex >= 3 || spawnIndex >= SpawnConfig.spawnPoints.size()) {
-            player.sendSystemMessage(Component.literal("Этот вариант выбора недоступен."));
+            reject(player, "Этот вариант выбора недоступен.");
             return;
         }
 
         SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(spawnIndex);
-        var server = player.getServer();
-        if (server == null) return;
         var scoreboard = server.getScoreboard();
         var targetTeam = scoreboard.getPlayerTeam(spawn.team);
         if (targetTeam == null) {
-            player.sendSystemMessage(Component.literal("Эта команда временно недоступна. Сообщите администрации."));
+            reject(player, "Эта команда временно недоступна. Сообщите администрации.");
             SpawnSelectorMod.LOGGER.error("Не найдена scoreboard-команда '{}' для точки '{}'.", spawn.team, spawn.name);
             return;
         }
@@ -67,44 +121,110 @@ public class SpawnMenuHandler {
         if (smallestCount == Integer.MAX_VALUE) smallestCount = 0;
 
         if (SpawnConfig.maxPlayersPerTeam > 0 && targetCount >= SpawnConfig.maxPlayersPerTeam) {
-            player.sendSystemMessage(Component.literal("Команда «" + spawn.name + "» уже заполнена (" +
-                    targetCount + "/" + SpawnConfig.maxPlayersPerTeam + "). Выберите другую команду."));
+            reject(player, "Команда «" + spawn.name + "» уже заполнена (" +
+                    targetCount + "/" + SpawnConfig.maxPlayersPerTeam + "). Выберите другую команду.");
             return;
         }
         if (targetCount + 1 - smallestCount > SpawnConfig.maxTeamImbalance) {
-            player.sendSystemMessage(Component.literal("В команде «" + spawn.name +
-                    "» сейчас слишком много игроков. Выберите менее заполненную команду."));
+            reject(player, "В команде «" + spawn.name +
+                    "» сейчас слишком много игроков. Выберите менее заполненную команду.");
             return;
         }
 
-        ServerLevel level = player.serverLevel();
-        BlockPos center = BlockPos.containing(spawn.x, spawn.y, spawn.z);
         if (spawn.y < level.getMinY() || spawn.y >= level.getMaxY()) {
-            player.sendSystemMessage(Component.literal("Точка появления настроена некорректно. Сообщите администрации."));
+            reject(player, "Точка появления настроена некорректно. Сообщите администрации.");
             SpawnSelectorMod.LOGGER.error("Y={} вне границ мира для точки '{}'.", spawn.y, spawn.name);
             return;
         }
 
-        server.getCommands().performPrefixedCommand(
-                server.createCommandSourceStack().withSuppressedOutput(),
-                "spreadplayers " + spawn.x + " " + spawn.z + " 1 " + SpawnConfig.radius + " false " + player.getGameProfile().name()
-        );
-
-        boolean added = scoreboard.addPlayerToTeam(player.getScoreboardName(), targetTeam);
-        if (!added && scoreboard.getPlayersTeam(player.getScoreboardName()) != targetTeam) {
-            player.sendSystemMessage(Component.literal("Не удалось назначить команду. Попробуйте ещё раз или обратитесь к администрации."));
-            SpawnSelectorMod.LOGGER.error("Не удалось назначить игрока {} в команду {}.", player.getGameProfile().name(), spawn.team);
+        BlockPos safe = findLandNear(level, (int) Math.floor(spawn.x), (int) Math.floor(spawn.z),
+                Math.max(0, Math.min(128, SpawnConfig.radius)), 48);
+        if (safe == null) {
+            reject(player, "Рядом с точкой «" + spawn.name + "» не найдена безопасная суша. Сообщите администрации.");
             return;
         }
 
-        server.getCommands().performPrefixedCommand(
-                server.createCommandSourceStack().withSuppressedOutput(),
-                "spawnpoint " + player.getGameProfile().name() + " " + center.getX() + " " + center.getY() + " " + center.getZ()
-        );
-        player.setYRot(spawn.yaw);
-        player.setXRot(0);
+        boolean added = scoreboard.addPlayerToTeam(player.getScoreboardName(), targetTeam);
+        if (!added && scoreboard.getPlayersTeam(player.getScoreboardName()) != targetTeam) {
+            reject(player, "Не удалось назначить команду. Попробуйте ещё раз или обратитесь к администрации.");
+            return;
+        }
+        if (!teleportAndSetRespawn(player, level, safe, spawn.yaw)) {
+            scoreboard.removePlayerFromTeam(player.getScoreboardName(), targetTeam);
+            reject(player, "Не удалось установить точку появления. Попробуйте ещё раз.");
+            return;
+        }
+
+        OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
         player.sendSystemMessage(Component.literal("Вы выбрали команду «" + spawn.name + "». Добро пожаловать!"));
-        player.closeContainer();
+        ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    private static BlockPos findRandomLandSpawn(ServerLevel level) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (int i = 0; i < FREE_SPAWN_ATTEMPTS; i++) {
+            int x = random.nextInt(FREE_SPAWN_MIN, FREE_SPAWN_MAX + 1);
+            int z = random.nextInt(FREE_SPAWN_MIN, FREE_SPAWN_MAX + 1);
+            BlockPos candidate = findLandNear(level, x, z, 0, 1);
+            if (candidate != null) return candidate;
+        }
+        return null;
+    }
+
+    private static BlockPos findLandNear(ServerLevel level, int centerX, int centerZ, int radius, int attempts) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (int i = 0; i < attempts; i++) {
+            int x = centerX;
+            int z = centerZ;
+            if (radius > 0) {
+                x += random.nextInt(-radius, radius + 1);
+                z += random.nextInt(-radius, radius + 1);
+            }
+            if (Math.abs(x) > 29_999_984 || Math.abs(z) > 29_999_984) continue;
+            int y;
+            try {
+                y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            } catch (RuntimeException e) {
+                SpawnSelectorMod.LOGGER.debug("Не удалось получить высоту для спавна {},{}.", x, z, e);
+                continue;
+            }
+            if (y <= level.getMinY() || y + 1 >= level.getMaxY()) continue;
+            BlockPos feet = new BlockPos(x, y, z);
+            BlockPos head = feet.above();
+            BlockPos floor = feet.below();
+            var floorState = level.getBlockState(floor);
+            var feetState = level.getBlockState(feet);
+            var headState = level.getBlockState(head);
+            if (!floorState.blocksMotion() || floorState.liquid()
+                    || feetState.blocksMotion() || feetState.liquid()
+                    || headState.blocksMotion() || headState.liquid()
+                    || isHazard(floorState.getBlock()) || isHazard(feetState.getBlock()) || isHazard(headState.getBlock())) {
+                continue;
+            }
+            return feet;
+        }
+        return null;
+    }
+
+    private static boolean isHazard(net.minecraft.world.level.block.Block block) {
+        return block == Blocks.FIRE || block == Blocks.SOUL_FIRE || block == Blocks.CACTUS
+                || block == Blocks.MAGMA_BLOCK || block == Blocks.CAMPFIRE || block == Blocks.SOUL_CAMPFIRE
+                || block == Blocks.POWDER_SNOW;
+    }
+
+    private static boolean teleportAndSetRespawn(ServerPlayer player, ServerLevel level, BlockPos pos, float yaw) {
+        var server = player.getServer();
+        if (server == null) return false;
+        String name = player.getGameProfile().name();
+        String teleport = "tp " + name + " " + pos.getX() + ".5 " + pos.getY() + " " + pos.getZ()
+                + ".5 " + yaw + " 0";
+        int tpResult = server.getCommands().performPrefixedCommand(
+                server.createCommandSourceStack().withSuppressedOutput(), teleport);
+        if (tpResult == 0) return false;
+        int spawnResult = server.getCommands().performPrefixedCommand(
+                server.createCommandSourceStack().withSuppressedOutput(),
+                "spawnpoint " + name + " " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
+        return spawnResult != 0;
     }
 }
