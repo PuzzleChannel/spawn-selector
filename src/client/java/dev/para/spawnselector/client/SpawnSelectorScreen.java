@@ -37,7 +37,7 @@ public class SpawnSelectorScreen extends Screen {
         g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
         g.fill(panelX + 8, panelY + 8, panelX + panelW - 8, panelY + 34, 0xFF4C3825);
         drawCentered(g, "ВЫБОР МЕСТА ПОЯВЛЕНИЯ", width / 2, panelY + 16, 0xFFFFD46A);
-        drawCentered(g, "Выберите команду или свободное выживание", width / 2, panelY + 43, 0xFFE0E0E0);
+        drawCentered(g, "Выберите команду или случайное место", width / 2, panelY + 43, 0xFFE0E0E0);
 
         int leftX = panelX + 14;
         int leftW = Math.min(246, panelW / 2 - 22);
@@ -53,7 +53,7 @@ public class SpawnSelectorScreen extends Screen {
             g.fill(leftX + 5, y + 5, leftX + 11, y + cardH - 5, teamColor(teams.get(i).color()));
             g.text(font, clip(teams.get(i).name(), leftW - 30), leftX + 18, y + 8, 0xFFFFFFFF, true);
             g.text(font, teams.get(i).countText(), leftX + 18, y + 24, 0xFFBEBEBE, true);
-            g.text(font, "Нажмите для выбора", leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
+            g.text(font, "Выбрать", leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
         }
 
         int freeY = cardY + 3 * (cardH + 7) + 2;
@@ -61,7 +61,7 @@ public class SpawnSelectorScreen extends Screen {
         g.fill(leftX - 2, freeY - 2, leftX + leftW + 2, freeY + 42, freeOver ? 0xFFFFD46A : 0xFF777777);
         g.fill(leftX, freeY, leftX + leftW, freeY + 40, freeOver ? 0xFF315043 : 0xFF303030);
         drawCentered(g, "Свободное выживание", leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
-        drawCentered(g, "Случайная безопасная суша", leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
+        drawCentered(g, "Случайный выбор спавна", leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
 
         int previewX = leftX + leftW + 16;
         int previewW = Math.max(80, panelX + panelW - 14 - previewX);
@@ -77,11 +77,11 @@ public class SpawnSelectorScreen extends Screen {
             drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 35);
             g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
         } else {
-            drawCentered(g, "Наведите на команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
-            drawCentered(g, "чтобы посмотреть местность", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
+            drawCentered(g, "Выберите команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
+            drawCentered(g, "чтобы увидеть описание", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
-        else if (sending) drawCentered(g, "Проверяем доступность точки…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
+        else if (sending) drawCentered(g, "Загрузка…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
