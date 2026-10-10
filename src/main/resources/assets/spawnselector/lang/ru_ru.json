@@ -1,0 +1,6 @@
+{
+  "item.spawnselector.filler": " ",
+  "screen.spawnselector.title": "Выберите команду",
+  "screen.spawnselector.opt_out": "Начать без команды",
+  "screen.spawnselector.opt_out.description": "Остаться вне всех трёх команд"
+}

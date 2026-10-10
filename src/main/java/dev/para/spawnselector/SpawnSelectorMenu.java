@@ -1,5 +1,7 @@
 package dev.para.spawnselector;
 
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -10,113 +12,89 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.core.component.DataComponents;
 
 public class SpawnSelectorMenu extends AbstractContainerMenu {
-
     private final Container container;
 
     public SpawnSelectorMenu(int id, Inventory playerInventory, Player player) {
         super(MenuType.GENERIC_9x3, id);
         this.container = new SimpleContainer(27);
-
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 int index = col + row * 9;
-                this.addSlot(new SpawnSlot(container, index, 8 + col * 18, 18 + row * 18, player));
+                this.addSlot(new SpawnSlot(container, index, 8 + col * 18, 18 + row * 18));
             }
         }
-
-        setupSpawnItems();
+        setupItems(player);
     }
 
-    private void setupSpawnItems() {
-        ItemStack glassPane = new ItemStack(Items.STAINED_GLASS_PANE.black());
-        glassPane.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(" "));
+    private void setupItems(Player player) {
+        ItemStack filler = new ItemStack(Items.STAINED_GLASS_PANE.black());
+        filler.set(DataComponents.CUSTOM_NAME, Component.literal(" "));
+        for (int i = 0; i < 27; i++) container.setItem(i, filler.copy());
 
-        for (int i = 0; i < 27; i++) {
-            container.setItem(i, glassPane.copy());
+        int[] teamSlots = {10, 13, 16};
+        for (int i = 0; i < 3 && i < SpawnConfig.spawnPoints.size(); i++) {
+            SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(i);
+            ItemStack icon = new ItemStack(i == 0 ? Items.WOOL.green() : i == 1 ? Items.WOOL.blue() : Items.WOOL.yellow());
+            icon.set(DataComponents.CUSTOM_NAME, Component.literal("§l" + spawn.name));
+            icon.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(java.util.List.of(
+                    Component.literal(spawn.description),
+                    Component.literal("§7Игроков: " + getTeamCount(player, spawn.team)),
+                    Component.literal("§eНажмите, чтобы выбрать")
+            )));
+            container.setItem(teamSlots[i], icon);
         }
 
-        ItemStack[] spawnItems = {
-            new ItemStack(Items.WOOL.red()),
-            new ItemStack(Items.WOOL.blue()),
-            new ItemStack(Items.WOOL.green()),
-            new ItemStack(Items.WOOL.yellow()),
-            new ItemStack(Items.WOOL.purple())
-        };
+        ItemStack skip = new ItemStack(Items.BARRIER);
+        skip.set(DataComponents.CUSTOM_NAME, Component.literal("§fНачать без команды"));
+        skip.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(java.util.List.of(
+                Component.literal("§7Вы не попадёте ни в одну из трёх команд."),
+                Component.literal("§7Выбор закрепится, но команда не назначится."),
+                Component.literal("§eНажмите, чтобы подтвердить отказ")
+        )));
+        container.setItem(22, skip);
 
-        int[] spawnSlots = {9, 11, 13, 15, 17};
+        ItemStack title = new ItemStack(Items.BOOK);
+        title.set(DataComponents.CUSTOM_NAME, Component.literal("§6§lВыберите сторону"));
+        title.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(java.util.List.of(
+                Component.literal("§7Наведите курсор, чтобы прочитать описание."),
+                Component.literal("§7Баланс команд защищает от сильного перевеса.")
+        )));
+        container.setItem(4, title);
+    }
 
-        for (int i = 0; i < Math.min(5, SpawnConfig.spawnPoints.size()); i++) {
-            if (i < spawnSlots.length) {
-                SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(i);
-                ItemStack stack = spawnItems[i];
-                stack.set(DataComponents.CUSTOM_NAME,
-                    net.minecraft.network.chat.Component.literal(spawn.name));
-                container.setItem(spawnSlots[i], stack);
-            }
+    private static int getTeamCount(Player player, String teamName) {
+        if (player instanceof ServerPlayer serverPlayer && serverPlayer.getServer() != null) {
+            var team = serverPlayer.getServer().getScoreboard().getPlayerTeam(teamName);
+            return team == null ? 0 : team.getPlayers().size();
         }
+        return 0;
     }
 
-    @Override
-    public ItemStack quickMoveStack(Player player, int index) {
-        return ItemStack.EMPTY;
+    @Override public ItemStack quickMoveStack(Player player, int index) { return ItemStack.EMPTY; }
+    @Override public boolean stillValid(Player player) {
+        return player instanceof ServerPlayer && !SpawnData.hasSelectedSpawn((ServerPlayer) player);
     }
-
-    @Override
-    public boolean stillValid(Player player) {
-        return true;
-    }
-
-    @Override
-    public void removed(Player player) {
-        if (!SpawnData.hasSelectedSpawn((ServerPlayer) player)) {
-            player.level().getServer().execute(() -> {
-                ((ServerPlayer) player).openMenu(new net.minecraft.world.SimpleMenuProvider(
-                    (id, inventory, p) -> new SpawnSelectorMenu(id, inventory, p),
-                    net.minecraft.network.chat.Component.literal("Выбор спавна")
-                ));
-            });
-        }
+    @Override public void removed(Player player) {
+        // Deliberately do not reopen from removed(): closing the menu must not create a reopen loop.
+        super.removed(player);
     }
 
     private static class SpawnSlot extends Slot {
-        private final Player menuPlayer;
-        private static final int[] SPAWN_SLOTS = {9, 11, 13, 15, 17};
-
-        public SpawnSlot(Container container, int slot, int x, int y, Player player) {
-            super(container, slot, x, y);
-            this.menuPlayer = player;
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return false;
-        }
-
-        @Override
-        public boolean mayPickup(Player player) {
-            int spawnIndex = getSpawnIndex(this.index);
-            if (spawnIndex >= 0 && player instanceof ServerPlayer serverPlayer) {
-                if (spawnIndex < SpawnConfig.spawnPoints.size()) {
-                    SpawnSelectorMod.LOGGER.info("Клик по слоту {}, индекс спавна: {}", this.index, spawnIndex);
-
-                    serverPlayer.level().getServer().execute(() -> {
-                        SpawnMenuHandler.handleSpawnSelection(serverPlayer, spawnIndex);
-                    });
-                }
+        private static final int[] TEAM_SLOTS = {10, 13, 16};
+        SpawnSlot(Container container, int slot, int x, int y) { super(container, slot, x, y); }
+        @Override public boolean mayPlace(ItemStack stack) { return false; }
+        @Override public boolean mayPickup(Player player) {
+            if (!(player instanceof ServerPlayer serverPlayer)) return false;
+            int index = -1;
+            for (int i = 0; i < TEAM_SLOTS.length; i++) if (TEAM_SLOTS[i] == this.index) index = i;
+            if (this.index == 22) index = 3;
+            if (index >= 0) {
+                int choice = index;
+                serverPlayer.server.execute(() -> SpawnMenuHandler.handleSpawnSelection(serverPlayer, choice));
             }
             return false;
-        }
-
-        private int getSpawnIndex(int slotIndex) {
-            for (int i = 0; i < SPAWN_SLOTS.length; i++) {
-                if (SPAWN_SLOTS[i] == slotIndex) {
-                    return i;
-                }
-            }
-            return -1;
         }
     }
 }
