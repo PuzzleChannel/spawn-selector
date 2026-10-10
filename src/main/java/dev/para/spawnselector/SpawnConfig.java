@@ -39,18 +39,23 @@ public class SpawnConfig {
             validate(data);
             spawnPoints = new ArrayList<>(data.spawnPoints);
             // Update only the previous built-in descriptions; preserve any server-owner edits.
+            boolean descriptionsUpdated = false;
             for (SpawnPoint point : spawnPoints) {
                 if ("Зелёная долина у леса. Подходит для спокойного старта и сбора ресурсов.".equals(point.description)) {
                     point.description = "Лес рядом, вокруг есть место для первых построек.";
+                    descriptionsUpdated = true;
                 } else if ("Открытая равнина для строительства базы и развития поселения.".equals(point.description)) {
                     point.description = "Ровное место для базы, полей и поселения.";
+                    descriptionsUpdated = true;
                 } else if ("Высокогорная местность с обзором и доступом к каменным ресурсам.".equals(point.description)) {
                     point.description = "Горы, камень и хороший обзор окрестностей.";
+                    descriptionsUpdated = true;
                 }
             }
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
+            if (descriptionsUpdated) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
