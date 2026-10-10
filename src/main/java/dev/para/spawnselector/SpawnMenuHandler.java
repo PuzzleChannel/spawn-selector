@@ -9,6 +9,7 @@ import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -82,30 +83,13 @@ public final class SpawnMenuHandler {
         // in which a returning player happened to join.
         ServerLevel level = server.overworld();
 
-        // Free survival uses a dedicated 4000x4000 area centered at X=-16000, Z=-6000.
+        // Free survival searches for a genuinely safe surface spot inside its dedicated region.
         if (spawnIndex == 3) {
-            ThreadLocalRandom random = ThreadLocalRandom.current();
-            int x = random.nextInt(FREE_SPAWN_CENTER_X - FREE_SPAWN_SPREAD,
-                    FREE_SPAWN_CENTER_X + FREE_SPAWN_SPREAD + 1);
-            int z = random.nextInt(FREE_SPAWN_CENTER_Z - FREE_SPAWN_SPREAD,
-                    FREE_SPAWN_CENTER_Z + FREE_SPAWN_SPREAD + 1);
-            int y;
-            try {
-                y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-            } catch (RuntimeException e) {
-                SpawnSelectorMod.LOGGER.error("Не удалось определить высоту для свободного спавна в {},{}.", x, z, e);
-                reject(player, "Не удалось определить высоту в зоне свободного выживания. Попробуйте ещё раз.");
+            BlockPos destination = findSafeFreeSpawn(level);
+            if (destination == null) {
+                reject(player, "Не удалось найти безопасное место в зоне свободного выживания. Попробуйте ещё раз.");
                 return;
             }
-            if (y <= level.getMinY() || y >= level.getMaxY()) {
-                int invalidHeight = y;
-                int fallbackY = level.getSeaLevel() + 1;
-                y = Math.max(level.getMinY() + 1, Math.min(level.getMaxY() - 2, fallbackY));
-                SpawnSelectorMod.LOGGER.warn(
-                        "Heightmap вернул недопустимую высоту для свободного спавна X={}, Z={} (Y={}); использую резервную Y={}.",
-                        x, z, invalidHeight, y);
-            }
-            BlockPos destination = new BlockPos(x, y, z);
             if (!teleportAndSetRespawn(player, level, destination, 0.0f)) {
                 reject(player, "Не удалось установить точку появления. Попробуйте ещё раз.");
                 return;
@@ -176,6 +160,42 @@ public final class SpawnMenuHandler {
         SpawnData.markSpawnSelected(player);
         player.sendSystemMessage(Component.literal("Вы выбрали команду «" + spawn.name + "». Добро пожаловать!"));
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    private static BlockPos findSafeFreeSpawn(ServerLevel level) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        // Bound the search so a bad worldgen area cannot cause an unbounded join-time scan.
+        for (int attempt = 0; attempt < 48; attempt++) {
+            int x = random.nextInt(FREE_SPAWN_CENTER_X - FREE_SPAWN_SPREAD,
+                    FREE_SPAWN_CENTER_X + FREE_SPAWN_SPREAD + 1);
+            int z = random.nextInt(FREE_SPAWN_CENTER_Z - FREE_SPAWN_SPREAD,
+                    FREE_SPAWN_CENTER_Z + FREE_SPAWN_SPREAD + 1);
+            try {
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                if (y <= level.getMinY() || y >= level.getMaxY() - 1) continue;
+                BlockPos feet = new BlockPos(x, y, z);
+                BlockPos head = feet.above();
+                BlockPos floor = feet.below();
+
+                var feetState = level.getBlockState(feet);
+                var headState = level.getBlockState(head);
+                var floorState = level.getBlockState(floor);
+
+                // Require two clear, dry body blocks and a solid, dry floor directly underneath.
+                if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
+                if (!feetState.getCollisionShape(level, feet).isEmpty()
+                        || !headState.getCollisionShape(level, head).isEmpty()) continue;
+                if (!floorState.getFluidState().isEmpty()
+                        || !floorState.isFaceSturdy(level, floor, Direction.UP)) continue;
+
+                return feet;
+            } catch (RuntimeException e) {
+                SpawnSelectorMod.LOGGER.debug("Пропускаю неподходящую точку свободного спавна X={}, Z={}.", x, z, e);
+            }
+        }
+        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн в области X={}±{}, Z={}±{}.",
+                FREE_SPAWN_CENTER_X, FREE_SPAWN_SPREAD, FREE_SPAWN_CENTER_Z, FREE_SPAWN_SPREAD);
+        return null;
     }
 
     private static boolean teleportAndSetRespawn(ServerPlayer player, ServerLevel level, BlockPos pos, float yaw) {
