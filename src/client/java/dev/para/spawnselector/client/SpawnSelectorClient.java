@@ -26,7 +26,7 @@ public class SpawnSelectorClient implements ClientModInitializer {
                 String message = root.has("message") ? root.get("message").getAsString() : "";
                 context.client().gui.setScreen(new SpawnSelectorScreen(teams, message));
             } catch (Exception e) {
-                context.client().gui.setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список команд."));
+                context.client().gui.setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список территорий."));
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE,
