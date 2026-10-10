@@ -26,6 +26,7 @@ public class SpawnSelectorScreen extends Screen {
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.fill(0, 0, width, height, 0xB9000000);
         panelW = Math.max(280, Math.min(760, width - 24));
         panelH = Math.max(250, Math.min(440, height - 20));
@@ -81,7 +82,6 @@ public class SpawnSelectorScreen extends Screen {
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
         else if (sending) drawCentered(g, "Проверяем доступность точки…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
-        super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
