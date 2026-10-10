@@ -21,7 +21,7 @@ public class SpawnSelectorScreen extends Screen {
     private int panelX, panelY, panelW, panelH;
 
     public SpawnSelectorScreen(List<SpawnTeamView> teams, String message) {
-        super(Component.literal("Выбор места появления"));
+        super(Component.literal("Выбор территории"));
         this.teams = teams;
         this.message = message == null ? "" : message;
     }
@@ -37,8 +37,8 @@ public class SpawnSelectorScreen extends Screen {
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF373737);
         g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
         g.fill(panelX + 8, panelY + 8, panelX + panelW - 8, panelY + 34, 0xFF4C3825);
-        drawCentered(g, "ВЫБОР МЕСТА ПОЯВЛЕНИЯ", width / 2, panelY + 16, 0xFFFFD46A);
-        drawCentered(g, "Выберите команду или случайное место", width / 2, panelY + 43, 0xFFE0E0E0);
+        drawCentered(g, "ВЫБОР ТЕРРИТОРИИ", width / 2, panelY + 16, 0xFFFFD46A);
+        drawCentered(g, "Выберите территорию или свободное выживание", width / 2, panelY + 43, 0xFFE0E0E0);
 
         int leftX = panelX + 14;
         int leftW = Math.min(246, panelW / 2 - 22);
@@ -98,9 +98,8 @@ public class SpawnSelectorScreen extends Screen {
         try {
             if (net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(id).isPresent()) {
                 if ("free_survival.png".equals(image)) {
-                    // This built-in texture is 320x180; center it without cropping.
-                    g.blit(RenderPipelines.GUI_TEXTURED, id, x + (w - 320) / 2, y + (h - 180) / 2,
-                            0, 0, 320, 180, 320, 180);
+                    // Use the same preview rectangle as territory images.
+                    g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 320, 180);
                 } else {
                     g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 640, 360);
                 }
