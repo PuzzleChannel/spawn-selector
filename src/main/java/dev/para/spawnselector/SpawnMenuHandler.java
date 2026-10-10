@@ -139,8 +139,15 @@ public final class SpawnMenuHandler {
             return;
         }
 
-        // Team choices teleport directly to configured coordinates; no land-safety search.
-        BlockPos destination = BlockPos.containing(spawn.x, spawn.y, spawn.z);
+        // Treat configured X/Z as the preferred area, but always resolve the actual
+        // destination to a dry surface block with open sky and non-negative Y.
+        BlockPos destination = findSafeSurfaceNear(level, spawn.x, spawn.z, SpawnConfig.radius);
+        if (destination == null) {
+            reject(player, "Не удалось найти подходящее место на поверхности этой территории. Сообщите администрации.");
+            SpawnSelectorMod.LOGGER.warn("Не найдена безопасная поверхность для территории '{}' около X={}, Z={}.",
+                    spawn.name, spawn.x, spawn.z);
+            return;
+        }
 
         boolean added = scoreboard.addPlayerToTeam(player.getScoreboardName(), targetTeam);
         if (!added && scoreboard.getPlayersTeam(player.getScoreboardName()) != targetTeam) {
@@ -156,6 +163,57 @@ public final class SpawnMenuHandler {
         OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    private static BlockPos findSafeSurfaceNear(ServerLevel level, double centerX, double centerZ, int radius) {
+        int baseX = (int) Math.floor(centerX);
+        int baseZ = (int) Math.floor(centerZ);
+        int attempts = Math.max(1, Math.min(64, (radius * 2 + 1) * (radius * 2 + 1)));
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        // Try the configured column first, then nearby columns within the configured radius.
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            int x;
+            int z;
+            if (attempt == 0) {
+                x = baseX;
+                z = baseZ;
+            } else {
+                x = baseX + random.nextInt(-radius, radius + 1);
+                z = baseZ + random.nextInt(-radius, radius + 1);
+            }
+            BlockPos safe = findSafeSurfaceInColumn(level, x, z);
+            if (safe != null) return safe;
+        }
+        return null;
+    }
+
+    private static BlockPos findSafeSurfaceInColumn(ServerLevel level, int x, int z) {
+        int minY = Math.max(0, level.getMinY() + 1);
+        int maxY = level.getMaxY() - 2;
+        try {
+            level.getChunk(x >> 4, z >> 4);
+            for (int y = maxY; y >= minY; y--) {
+                BlockPos feet = new BlockPos(x, y, z);
+                BlockPos head = feet.above();
+                BlockPos floor = feet.below();
+                var feetState = level.getBlockState(feet);
+                var headState = level.getBlockState(head);
+                var floorState = level.getBlockState(floor);
+
+                if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
+                if (!feetState.getCollisionShape(level, feet).isEmpty()
+                        || !headState.getCollisionShape(level, head).isEmpty()) continue;
+                if (!floorState.getFluidState().isEmpty()
+                        || floorState.getCollisionShape(level, floor).isEmpty()) continue;
+                if (!level.canSeeSky(feet)) continue;
+
+                return feet;
+            }
+        } catch (RuntimeException e) {
+            SpawnSelectorMod.LOGGER.warn("Ошибка проверки поверхности X={}, Z={}.", x, z, e);
+        }
+        return null;
     }
 
     private static BlockPos findSafeFreeSpawn(ServerLevel level) {
@@ -180,13 +238,17 @@ public final class SpawnMenuHandler {
                     var headState = level.getBlockState(head);
                     var floorState = level.getBlockState(floor);
 
+                    if (y < 0) continue;
                     if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
                     if (!feetState.getCollisionShape(level, feet).isEmpty()
                             || !headState.getCollisionShape(level, head).isEmpty()) continue;
                     if (!floorState.getFluidState().isEmpty()
                             || floorState.getCollisionShape(level, floor).isEmpty()) continue;
+                    // Reject caves, overhangs and underground chambers: the selected position
+                    // must be at non-negative altitude with an unobstructed view of the sky.
+                    if (!level.canSeeSky(feet)) continue;
 
-                    // Found an actual clear two-block-tall space immediately above a floor.
+                    // Found a clear, dry surface position with open sky directly above it.
                     SpawnSelectorMod.LOGGER.info("Безопасный свободный спавн найден: X={}, Y={}, Z={} (попытка {}).",
                             x, y, z, attempt + 1);
                     return feet;
