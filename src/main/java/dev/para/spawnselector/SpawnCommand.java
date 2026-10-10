@@ -44,7 +44,7 @@ public class SpawnCommand {
                         context.getSource().sendSuccess(() -> Component.literal(index + ". " + p.name + " — " +
                                 (int)p.x + " " + (int)p.y + " " + (int)p.z + " (команда: " + p.team + ")"), false);
                     }
-                    context.getSource().sendSuccess(() -> Component.literal("4. Свободное выживание — случайная суша в пределах ±10 000 блоков"), false);
+                    context.getSource().sendSuccess(() -> Component.literal("4. Случайный выбор спавна — X: -20 000…-12 000, Z: -10 000…-2 000"), false);
                     return 1;
                 }))
                 .then(Commands.literal("teams").executes(context -> {
