@@ -16,6 +16,7 @@ public class SpawnSelectorScreen extends Screen {
     private final List<SpawnTeamView> teams;
     private String message;
     private int hovered = -1;
+    private boolean freeHovered;
     private boolean sending;
     private int panelX, panelY, panelW, panelH;
 
@@ -58,6 +59,7 @@ public class SpawnSelectorScreen extends Screen {
 
         int freeY = cardY + 3 * (cardH + 7) + 2;
         boolean freeOver = inside(mouseX, mouseY, leftX, freeY, leftW, 40);
+        freeHovered = freeOver;
         g.fill(leftX - 2, freeY - 2, leftX + leftW + 2, freeY + 42, freeOver ? 0xFFFFD46A : 0xFF777777);
         g.fill(leftX, freeY, leftX + leftW, freeY + 40, freeOver ? 0xFF315043 : 0xFF303030);
         drawCentered(g, "Свободное выживание", leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
@@ -68,16 +70,21 @@ public class SpawnSelectorScreen extends Screen {
         int previewY = panelY + 66;
         int previewH = Math.min(220, Math.max(100, panelH - 170));
         g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
-        drawPlaceholderLandscape(g, previewX, previewY, previewW, previewH, hovered);
-        if (hovered >= 0 && hovered < teams.size()) {
+        drawPlaceholderLandscape(g, previewX, previewY, previewW, previewH, freeHovered ? 3 : hovered);
+        if (freeHovered) {
+            drawPreviewImage(g, "free_survival.png", previewX, previewY, previewW, previewH);
+            int textY = previewY + previewH + 10;
+            g.text(font, "Свободное выживание", previewX, textY, 0xFFFFD46A, true);
+            drawWrapped(g, "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите.", previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
+        } else if (hovered >= 0 && hovered < teams.size()) {
             SpawnTeamView team = teams.get(hovered);
             drawPreviewImage(g, team.image(), previewX, previewY, previewW, previewH);
             int textY = previewY + previewH + 10;
             g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
-            drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 35);
+            drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
             g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
         } else {
-            drawCentered(g, "Выберите команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
+            drawCentered(g, "Выберите вариант", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
             drawCentered(g, "чтобы увидеть описание", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
