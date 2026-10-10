@@ -2,6 +2,7 @@ package dev.para.spawnselector;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.para.spawnselector.network.SpawnPayloads;
@@ -221,12 +222,17 @@ public final class SpawnMenuHandler {
         String name = player.getGameProfile().name();
         String teleport = "tp " + name + " " + pos.getX() + ".5 " + pos.getY() + " " + pos.getZ()
                 + ".5 " + yaw + " 0";
-        int tpResult = server.getCommands().getDispatcher().execute(
-                teleport, server.createCommandSourceStack().withSuppressedOutput());
-        if (tpResult == 0) return false;
-        int spawnResult = server.getCommands().getDispatcher().execute(
-                "spawnpoint " + name + " " + pos.getX() + " " + pos.getY() + " " + pos.getZ(),
-                server.createCommandSourceStack().withSuppressedOutput());
-        return spawnResult != 0;
+        try {
+            int tpResult = server.getCommands().getDispatcher().execute(
+                    teleport, server.createCommandSourceStack().withSuppressedOutput());
+            if (tpResult == 0) return false;
+            int spawnResult = server.getCommands().getDispatcher().execute(
+                    "spawnpoint " + name + " " + pos.getX() + " " + pos.getY() + " " + pos.getZ(),
+                    server.createCommandSourceStack().withSuppressedOutput());
+            return spawnResult != 0;
+        } catch (CommandSyntaxException e) {
+            SpawnSelectorMod.LOGGER.error("Не удалось выполнить команды телепортации/установки спавна для игрока {}.", name, e);
+            return false;
+        }
     }
 }
