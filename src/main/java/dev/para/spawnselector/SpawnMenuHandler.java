@@ -25,8 +25,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class SpawnMenuHandler {
     private static final Gson GSON = new GsonBuilder().create();
     private static final Set<UUID> OPEN_MENUS = new HashSet<>();
-    private static final int FREE_SPAWN_CENTER_X = -16_000;
-    private static final int FREE_SPAWN_CENTER_Z = -6_000;
+    private static final int FREE_SPAWN_CENTER_X = 0;
+    private static final int FREE_SPAWN_CENTER_Z = 0;
     private static final int FREE_SPAWN_SPREAD = 4_000;
 
     private SpawnMenuHandler() {}
