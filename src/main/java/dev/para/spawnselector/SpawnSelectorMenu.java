@@ -3,6 +3,7 @@ package dev.para.spawnselector;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -65,8 +66,9 @@ public class SpawnSelectorMenu extends AbstractContainerMenu {
     }
 
     private static int getTeamCount(Player player, String teamName) {
-        if (player instanceof ServerPlayer serverPlayer && serverPlayer.getServer() != null) {
-            var team = serverPlayer.getServer().getScoreboard().getPlayerTeam(teamName);
+        if (player instanceof ServerPlayer serverPlayer) {
+            var server = ((ServerLevel) serverPlayer.level()).getServer();
+            var team = server.getScoreboard().getPlayerTeam(teamName);
             return team == null ? 0 : team.getPlayers().size();
         }
         return 0;
@@ -92,7 +94,7 @@ public class SpawnSelectorMenu extends AbstractContainerMenu {
             if (this.index == 22) index = 3;
             if (index >= 0) {
                 int choice = index;
-                serverPlayer.server.execute(() -> SpawnMenuHandler.handleSpawnSelection(serverPlayer, choice));
+                ((ServerLevel) serverPlayer.level()).getServer().execute(() -> SpawnMenuHandler.handleSpawnSelection(serverPlayer, choice));
             }
             return false;
         }
