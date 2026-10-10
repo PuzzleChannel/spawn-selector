@@ -13,6 +13,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.network.chat.Component;
 
 import java.util.HashSet;
@@ -47,15 +50,15 @@ public final class SpawnMenuHandler {
     private static void sendMenu(ServerPlayer player, String message) {
         JsonObject root = new JsonObject();
         JsonArray teams = new JsonArray();
-        var server = player.getServer();
-        var scoreboard = server == null ? null : server.getScoreboard();
+        MinecraftServer server = ((ServerLevel) player.level()).getServer();
+        Scoreboard scoreboard = server.getScoreboard();
         for (int i = 0; i < Math.min(3, SpawnConfig.spawnPoints.size()); i++) {
             SpawnConfig.SpawnPoint point = SpawnConfig.spawnPoints.get(i);
             JsonObject team = new JsonObject();
             team.addProperty("name", point.name);
             team.addProperty("description", point.description == null ? "" : point.description);
             team.addProperty("image", point.image == null ? "" : point.image);
-            var scoreboardTeam = scoreboard == null ? null : scoreboard.getPlayerTeam(point.team);
+            PlayerTeam scoreboardTeam = scoreboard.getPlayerTeam(point.team);
             team.addProperty("count", scoreboardTeam == null ? 0 : scoreboardTeam.getPlayers().size());
             team.addProperty("max", SpawnConfig.maxPlayersPerTeam);
             team.addProperty("color", point.color == null ? "" : point.color);
@@ -74,8 +77,8 @@ public final class SpawnMenuHandler {
     public static void handleSpawnSelection(ServerPlayer player, int spawnIndex) {
         if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
         if (!OPEN_MENUS.contains(player.getUUID())) return;
-        ServerLevel level = player.serverLevel();
-        var server = player.getServer();
+        ServerLevel level = (ServerLevel) player.level();
+        MinecraftServer server = level.getServer();
         if (server == null) return;
 
         // Fourth choice is independent survival: it receives a safe random land spawn but no team.
@@ -103,8 +106,8 @@ public final class SpawnMenuHandler {
         }
 
         SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(spawnIndex);
-        var scoreboard = server.getScoreboard();
-        var targetTeam = scoreboard.getPlayerTeam(spawn.team);
+        Scoreboard scoreboard = server.getScoreboard();
+        PlayerTeam targetTeam = scoreboard.getPlayerTeam(spawn.team);
         if (targetTeam == null) {
             reject(player, "Эта команда временно недоступна. Сообщите администрации.");
             SpawnSelectorMod.LOGGER.error("Не найдена scoreboard-команда '{}' для точки '{}'.", spawn.team, spawn.name);
@@ -114,7 +117,7 @@ public final class SpawnMenuHandler {
         int targetCount = targetTeam.getPlayers().size();
         int smallestCount = Integer.MAX_VALUE;
         for (SpawnConfig.SpawnPoint point : SpawnConfig.spawnPoints) {
-            var team = scoreboard.getPlayerTeam(point.team);
+            PlayerTeam team = scoreboard.getPlayerTeam(point.team);
             int count = team == null ? 0 : team.getPlayers().size();
             smallestCount = Math.min(smallestCount, count);
         }
@@ -214,8 +217,7 @@ public final class SpawnMenuHandler {
     }
 
     private static boolean teleportAndSetRespawn(ServerPlayer player, ServerLevel level, BlockPos pos, float yaw) {
-        var server = player.getServer();
-        if (server == null) return false;
+        MinecraftServer server = level.getServer();
         String name = player.getGameProfile().name();
         String teleport = "tp " + name + " " + pos.getX() + ".5 " + pos.getY() + " " + pos.getZ()
                 + ".5 " + yaw + " 0";
