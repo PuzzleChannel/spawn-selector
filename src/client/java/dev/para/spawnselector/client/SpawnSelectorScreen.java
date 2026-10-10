@@ -79,12 +79,12 @@ public class SpawnSelectorScreen extends Screen {
             drawCentered(g, "Наведите на команду", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
             drawCentered(g, "чтобы посмотреть местность", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
         }
-        if (!message.isBlank()) g.drawCenteredString(font, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
-        else if (sending) g.drawCenteredString(font, "Проверяем доступность точки…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
+        if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
+        else if (sending) drawCentered(g, "Проверяем доступность точки…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
-    private void drawPreviewImage(GuiGraphics g, String image, int x, int y, int w, int h) {
+    private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
         if (image == null || image.isBlank()) return;
         String path = image.startsWith("textures/") ? image : "textures/gui/spawn_selector/" + image;
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
@@ -97,7 +97,7 @@ public class SpawnSelectorScreen extends Screen {
         }
     }
 
-    private void drawPlaceholderLandscape(GuiGraphics g, int x, int y, int w, int h, int variant) {
+    private void drawPlaceholderLandscape(GuiGraphicsExtractor g, int x, int y, int w, int h, int variant) {
         int sky = variant == 2 ? 0xFF6C8CA3 : variant == 1 ? 0xFF87B8D8 : 0xFF78A9D0;
         g.fill(x, y, x + w, y + h, sky);
         g.fill(x + w / 12, y + h / 5, x + w / 12 + Math.max(8, w / 6), y + h / 5 + Math.max(4, h / 18), 0xFFE4E9E5);
@@ -118,21 +118,21 @@ public class SpawnSelectorScreen extends Screen {
         }
     }
 
-    private void drawWrapped(GuiGraphics g, String text, int x, int y, int maxWidth, int color, int bottom) {
+    private void drawWrapped(GuiGraphicsExtractor g, String text, int x, int y, int maxWidth, int color, int bottom) {
         StringBuilder line = new StringBuilder();
         int lineY = y;
         for (String word : text.split("\\s+")) {
             String candidate = line.isEmpty() ? word : line + " " + word;
             if (font.width(candidate) > maxWidth && !line.isEmpty()) {
                 if (lineY + 10 > bottom) break;
-                g.drawString(font, line.toString(), x, lineY, color);
+                g.text(font, line.toString(), x, lineY, color, true);
                 lineY += 12; line.setLength(0); line.append(word);
             } else {
                 if (!line.isEmpty()) line.append(' ');
                 line.append(word);
             }
         }
-        if (!line.isEmpty() && lineY <= bottom) g.drawString(font, line.toString(), x, lineY, color);
+        if (!line.isEmpty() && lineY <= bottom) g.text(font, line.toString(), x, lineY, color, true);
     }
 
     private void drawCentered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
