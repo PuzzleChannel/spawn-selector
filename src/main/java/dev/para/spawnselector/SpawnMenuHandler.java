@@ -9,7 +9,6 @@ import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
@@ -78,9 +77,11 @@ public final class SpawnMenuHandler {
     public static void handleSpawnSelection(ServerPlayer player, int spawnIndex) {
         if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
         if (!OPEN_MENUS.contains(player.getUUID())) return;
-        ServerLevel level = (ServerLevel) player.level();
-        MinecraftServer server = level.getServer();
+        MinecraftServer server = ((ServerLevel) player.level()).getServer();
         if (server == null) return;
+        // Spawn selection always targets the Overworld, regardless of the dimension
+        // in which a returning player happened to join.
+        ServerLevel level = server.overworld();
 
         // Fourth choice is independent survival: it receives a safe random land spawn but no team.
         if (spawnIndex == 3) {
@@ -220,8 +221,8 @@ public final class SpawnMenuHandler {
     private static boolean teleportAndSetRespawn(ServerPlayer player, ServerLevel level, BlockPos pos, float yaw) {
         MinecraftServer server = level.getServer();
         String name = player.getGameProfile().name();
-        String teleport = "tp " + name + " " + pos.getX() + ".5 " + pos.getY() + " " + pos.getZ()
-                + ".5 " + yaw + " 0";
+        String teleport = "tp " + name + " " + (pos.getX() + 0.5) + " " + pos.getY() + " "
+                + (pos.getZ() + 0.5) + " " + yaw + " 0";
         try {
             int tpResult = server.getCommands().getDispatcher().execute(
                     teleport, server.createCommandSourceStack().withSuppressedOutput());
