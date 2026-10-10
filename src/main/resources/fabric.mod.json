@@ -3,15 +3,14 @@
   "id": "spawnselector",
   "version": "${version}",
   "name": "Spawn Selector",
-  "description": "Server-side spawn point selection menu",
-  "authors": ["Para"],
+  "description": "Visual four-option spawn selector with safe land spawn and team balancing",
+  "authors": ["PuzzleChannel"],
   "contact": {},
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": [
-      "dev.para.spawnselector.SpawnSelectorMod"
-    ]
+    "main": ["dev.para.spawnselector.SpawnSelectorMod"],
+    "client": ["dev.para.spawnselector.client.SpawnSelectorClient"]
   },
   "depends": {
     "fabricloader": ">=${loader_version}",
