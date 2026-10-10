@@ -1,7 +1,10 @@
 package dev.para.spawnselector;
 
+import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,9 +12,14 @@ public class SpawnSelectorMod implements ModInitializer {
     public static final String MOD_ID = "spawnselector";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    @Override
-    public void onInitialize() {
+    @Override public void onInitialize() {
         LOGGER.info("Инициализация Spawn Selector...");
+        PayloadTypeRegistry.playS2C().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
+        PayloadTypeRegistry.playS2C().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
+        PayloadTypeRegistry.playC2S().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(SpawnPayloads.Choose.TYPE, (payload, context) ->
+                context.player().server.execute(() ->
+                        SpawnMenuHandler.handleSpawnSelection(context.player(), payload.index())));
         SpawnConfig.load();
         SpawnData.load();
         SpawnMenuHandler.register();
@@ -26,17 +34,14 @@ public class SpawnSelectorMod implements ModInitializer {
             SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(i);
             var scoreboard = server.getScoreboard();
             var team = scoreboard.getPlayerTeam(spawn.team);
-            if (team == null) {
-                team = scoreboard.addPlayerTeam(spawn.team);
-                LOGGER.info("Создана команда: {}", spawn.team);
-            }
+            if (team == null) team = scoreboard.addPlayerTeam(spawn.team);
             String color = spawn.color != null && !spawn.color.isBlank()
                     ? spawn.color : defaultColors[Math.min(i, defaultColors.length - 1)];
             try {
                 team.setColor(net.minecraft.ChatFormatting.valueOf(color.toUpperCase(java.util.Locale.ROOT)));
             } catch (IllegalArgumentException e) {
                 LOGGER.warn("Неизвестный цвет '{}' для команды '{}'; использую цвет по умолчанию.", color, spawn.team);
-                team.setColor(net.minecraft.ChatFormatting.valueOf(defaultColors[i].toUpperCase(java.util.Locale.ROOT)));
+                team.setColor(net.minecraft.ChatFormatting.valueOf(defaultColors[Math.min(i, defaultColors.length - 1)].toUpperCase(java.util.Locale.ROOT)));
             }
         }
     }
