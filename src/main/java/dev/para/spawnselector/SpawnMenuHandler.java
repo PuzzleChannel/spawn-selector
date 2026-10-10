@@ -9,7 +9,6 @@ import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -164,36 +163,53 @@ public final class SpawnMenuHandler {
 
     private static BlockPos findSafeFreeSpawn(ServerLevel level) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        // Bound the search so a bad worldgen area cannot cause an unbounded join-time scan.
-        for (int attempt = 0; attempt < 48; attempt++) {
+        int minY = level.getMinY() + 1;
+        int maxY = level.getMaxY() - 2;
+
+        // Try many random columns, then inspect nearby Y levels instead of trusting
+        // the heightmap's single result (custom Earth generators can return odd heights).
+        for (int attempt = 0; attempt < 128; attempt++) {
             int x = random.nextInt(FREE_SPAWN_CENTER_X - FREE_SPAWN_SPREAD,
                     FREE_SPAWN_CENTER_X + FREE_SPAWN_SPREAD + 1);
             int z = random.nextInt(FREE_SPAWN_CENTER_Z - FREE_SPAWN_SPREAD,
                     FREE_SPAWN_CENTER_Z + FREE_SPAWN_SPREAD + 1);
             try {
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                if (y <= level.getMinY() || y >= level.getMaxY() - 1) continue;
-                BlockPos feet = new BlockPos(x, y, z);
-                BlockPos head = feet.above();
-                BlockPos floor = feet.below();
+                int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                if (surfaceY < minY || surfaceY > maxY) {
+                    SpawnSelectorMod.LOGGER.debug(
+                            "Heightmap вернул Y={} вне подходящего диапазона для свободного спавна X={}, Z={}.",
+                            surfaceY, x, z);
+                    continue;
+                }
 
-                var feetState = level.getBlockState(feet);
-                var headState = level.getBlockState(head);
-                var floorState = level.getBlockState(floor);
+                // Check the heightmap result first, then a few blocks around it.
+                for (int offset = 0; offset <= 4; offset++) {
+                    int[] candidates = offset == 0
+                            ? new int[]{surfaceY}
+                            : new int[]{surfaceY - offset, surfaceY + offset};
+                    for (int y : candidates) {
+                        if (y < minY || y > maxY) continue;
+                        BlockPos feet = new BlockPos(x, y, z);
+                        BlockPos head = feet.above();
+                        BlockPos floor = feet.below();
+                        var feetState = level.getBlockState(feet);
+                        var headState = level.getBlockState(head);
+                        var floorState = level.getBlockState(floor);
 
-                // Require two clear, dry body blocks and a solid, dry floor directly underneath.
-                if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
-                if (!feetState.getCollisionShape(level, feet).isEmpty()
-                        || !headState.getCollisionShape(level, head).isEmpty()) continue;
-                if (!floorState.getFluidState().isEmpty()
-                        || !floorState.isFaceSturdy(level, floor, Direction.UP)) continue;
+                        if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
+                        if (!feetState.getCollisionShape(level, feet).isEmpty()
+                                || !headState.getCollisionShape(level, head).isEmpty()) continue;
+                        if (!floorState.getFluidState().isEmpty()
+                                || floorState.getCollisionShape(level, floor).isEmpty()) continue;
 
-                return feet;
+                        return feet;
+                    }
+                }
             } catch (RuntimeException e) {
-                SpawnSelectorMod.LOGGER.debug("Пропускаю неподходящую точку свободного спавна X={}, Z={}.", x, z, e);
+                SpawnSelectorMod.LOGGER.debug("Пропускаю точку свободного спавна X={}, Z={} из-за ошибки проверки.", x, z, e);
             }
         }
-        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн в области X={}±{}, Z={}±{}.",
+        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн после 128 попыток в области X={}±{}, Z={}±{}.",
                 FREE_SPAWN_CENTER_X, FREE_SPAWN_SPREAD, FREE_SPAWN_CENTER_Z, FREE_SPAWN_SPREAD);
         return null;
     }
