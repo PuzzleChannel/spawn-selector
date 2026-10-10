@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,7 +29,7 @@ public final class SpawnMenuHandler {
     private static final Set<UUID> OPEN_MENUS = new HashSet<>();
     private static final int FREE_SPAWN_MIN = -10_000;
     private static final int FREE_SPAWN_MAX = 10_000;
-    private static final int FREE_SPAWN_ATTEMPTS = 64;
+    private static final int FREE_SPAWN_ATTEMPTS = 512;
     private static final int LOCAL_SPAWN_RADIUS = 16;
     private static final int LOCAL_SPAWN_ATTEMPTS = 128;
 
@@ -169,35 +170,41 @@ public final class SpawnMenuHandler {
     }
 
     private static BlockPos findRandomLandSpawn(ServerPlayer player, ServerLevel level) {
-        // First preserve the island/land the player is already standing on. This is
-        // especially important for Earth maps where most random X/Z samples are ocean.
-        if (player.level() instanceof ServerLevel playerLevel
-                && playerLevel.dimension().equals(level.dimension())) {
-            BlockPos current = player.blockPosition();
-            if (isSafeSpawnPosition(level, current)) {
-                SpawnSelectorMod.LOGGER.info("Для свободного спавна игрока {} использована текущая безопасная позиция {}.",
-                        player.getGameProfile().name(), current);
-                return current;
-            }
-
-            // If the exact position is unsafe (edge, plant, shallow water), search the nearby island first.
-            BlockPos nearby = findLandNear(level, current.getX(), current.getZ(),
-                    LOCAL_SPAWN_RADIUS, LOCAL_SPAWN_ATTEMPTS);
-            if (nearby != null) {
-                SpawnSelectorMod.LOGGER.info("Для свободного спавна игрока {} найдена суша рядом с текущей позицией: {}.",
-                        player.getGameProfile().name(), nearby);
-                return nearby;
-            }
-        }
-
-        // Only use the global random search when no safe local land is available.
         ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        // Prefer a genuinely random, distant location so players do not all spawn
+        // at the same place just because they are standing together when selecting.
         for (int i = 0; i < FREE_SPAWN_ATTEMPTS; i++) {
             int x = random.nextInt(FREE_SPAWN_MIN, FREE_SPAWN_MAX + 1);
             int z = random.nextInt(FREE_SPAWN_MIN, FREE_SPAWN_MAX + 1);
             BlockPos candidate = findLandNear(level, x, z, 0, 1);
-            if (candidate != null) return candidate;
+            if (candidate != null) {
+                SpawnSelectorMod.LOGGER.info("Для свободного спавна игрока {} выбрана случайная безопасная суша: {}.",
+                        player.getGameProfile().name(), candidate);
+                return candidate;
+            }
         }
+
+        // Only fall back to the player's surroundings if the wider search failed.
+        if (player.level() instanceof ServerLevel playerLevel
+                && playerLevel.dimension().equals(level.dimension())) {
+            BlockPos current = player.blockPosition();
+            BlockPos nearby = findLandNear(level, current.getX(), current.getZ(),
+                    LOCAL_SPAWN_RADIUS, LOCAL_SPAWN_ATTEMPTS);
+            if (nearby != null) {
+                SpawnSelectorMod.LOGGER.info("Глобальный поиск суши не удался; для игрока {} найдена безопасная позиция рядом с текущей: {}.",
+                        player.getGameProfile().name(), nearby);
+                return nearby;
+            }
+
+            // Last resort: use the exact current block only if it is safe and not foliage.
+            if (isSafeSpawnPosition(level, current)) {
+                SpawnSelectorMod.LOGGER.warn("Для игрока {} использована текущая позиция как последний резервный вариант: {}.",
+                        player.getGameProfile().name(), current);
+                return current;
+            }
+        }
+
         SpawnSelectorMod.LOGGER.warn("Не найдена безопасная суша для свободного спавна игрока {}. Текущая позиция: {} {} {}.",
                 player.getGameProfile().name(), player.getX(), player.getY(), player.getZ());
         return null;
@@ -236,7 +243,11 @@ public final class SpawnMenuHandler {
         var feetState = level.getBlockState(feet);
         var headState = level.getBlockState(head);
 
-        return floorState.blocksMotion() && !floorState.liquid()
+        // Never allow foliage in the support block or in the player's body space.
+        return !(floorState.getBlock() instanceof LeavesBlock)
+                && !(feetState.getBlock() instanceof LeavesBlock)
+                && !(headState.getBlock() instanceof LeavesBlock)
+                && floorState.blocksMotion() && !floorState.liquid()
                 && !feetState.blocksMotion() && !feetState.liquid()
                 && !headState.blocksMotion() && !headState.liquid()
                 && !isHazard(floorState.getBlock())
