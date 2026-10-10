@@ -14,9 +14,9 @@ public class SpawnSelectorMod implements ModInitializer {
 
     @Override public void onInitialize() {
         LOGGER.info("Инициализация Spawn Selector...");
-        PayloadTypeRegistry.playS2C().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
         PayloadTypeRegistry.playS2C().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
-        PayloadTypeRegistry.playC2S().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(SpawnPayloads.Choose.TYPE, (payload, context) ->
                 context.player().server.execute(() ->
                         SpawnMenuHandler.handleSpawnSelection(context.player(), payload.index())));
@@ -38,10 +38,10 @@ public class SpawnSelectorMod implements ModInitializer {
             String color = spawn.color != null && !spawn.color.isBlank()
                     ? spawn.color : defaultColors[Math.min(i, defaultColors.length - 1)];
             try {
-                team.setColor(net.minecraft.ChatFormatting.valueOf(color.toUpperCase(java.util.Locale.ROOT)));
+                team.setColor(java.util.Optional.of(net.minecraft.world.scores.TeamColor.valueOf(color.toUpperCase(java.util.Locale.ROOT))));
             } catch (IllegalArgumentException e) {
                 LOGGER.warn("Неизвестный цвет '{}' для команды '{}'; использую цвет по умолчанию.", color, spawn.team);
-                team.setColor(net.minecraft.ChatFormatting.valueOf(defaultColors[Math.min(i, defaultColors.length - 1)].toUpperCase(java.util.Locale.ROOT)));
+                team.setColor(java.util.Optional.of(net.minecraft.world.scores.TeamColor.valueOf(defaultColors[Math.min(i, defaultColors.length - 1)].toUpperCase(java.util.Locale.ROOT))));
             }
         }
     }
