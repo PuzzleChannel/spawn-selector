@@ -9,6 +9,10 @@ import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.PlayerTeam;
 
 public class SpawnCommand {
     public static void register() {
@@ -44,10 +48,10 @@ public class SpawnCommand {
                     return 1;
                 }))
                 .then(Commands.literal("teams").executes(context -> {
-                    var scoreboard = context.getSource().getServer().getScoreboard();
+                    Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
                     context.getSource().sendSuccess(() -> Component.literal("=== Состав команд ==="), false);
                     for (SpawnConfig.SpawnPoint point : SpawnConfig.spawnPoints) {
-                        var team = scoreboard.getPlayerTeam(point.team);
+                        PlayerTeam team = scoreboard.getPlayerTeam(point.team);
                         int count = team == null ? 0 : team.getPlayers().size();
                         context.getSource().sendSuccess(() -> Component.literal(point.name + ": " + count +
                                 (SpawnConfig.maxPlayersPerTeam > 0 ? "/" + SpawnConfig.maxPlayersPerTeam : "") +
@@ -74,12 +78,13 @@ public class SpawnCommand {
                     .then(Commands.argument("target", EntityArgument.player()).executes(context -> {
                         ServerPlayer target = EntityArgument.getPlayer(context, "target");
                         SpawnData.resetSpawnSelection(target);
-                        var scoreboard = target.getServer().getScoreboard();
-                        var oldTeam = scoreboard.getPlayersTeam(target.getScoreboardName());
+                        MinecraftServer server = ((ServerLevel) target.level()).getServer();
+                        Scoreboard scoreboard = server.getScoreboard();
+                        PlayerTeam oldTeam = scoreboard.getPlayersTeam(target.getScoreboardName());
                         if (oldTeam != null) scoreboard.removePlayerFromTeam(target.getScoreboardName(), oldTeam);
                         context.getSource().sendSuccess(() -> Component.literal("Выбор сброшен для " + target.getGameProfile().name()), true);
                         target.closeContainer();
-                        target.server.execute(() -> SpawnMenuHandler.openMenu(target));
+                        server.execute(() -> SpawnMenuHandler.openMenu(target));
                         return 1;
                     })))
             )
