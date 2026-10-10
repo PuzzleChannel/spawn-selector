@@ -18,7 +18,7 @@ public class SpawnCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             dispatcher.register(Commands.literal("spp")
-                .requires(source -> !source.isPlayer() || source.getServer().getPlayerList().isOp(source.getPlayer().nameAndId()))
+                .requires(source -> !source.isPlayer() || source.getServer().getPlayerList().isOp(source.getPlayer().getGameProfile()))
                 .then(Commands.literal("set")
                     .then(Commands.argument("index", IntegerArgumentType.integer(1, 3))
                         .then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(context -> {
