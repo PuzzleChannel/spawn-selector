@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "spawnselector",
+  "version": "1.0.0",
+  "name": "Spawn Selector",
+  "description": "Server-side spawn point selection menu",
+  "authors": ["Para"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.para.spawnselector.SpawnSelectorMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
