@@ -34,7 +34,8 @@ public class SpawnSelectorClient implements ClientModInitializer {
                     String countText = countTemplate.replace("{count}", Integer.toString(count)).replace("{max}", Integer.toString(max));
                     teams.add(new SpawnTeamView(item.get("name").getAsString(),
                             item.get("description").getAsString(), item.get("image").getAsString(),
-                            count, max, item.get("color").getAsString(), countText));
+                            count, max, item.get("color").getAsString(), countText,
+                            !item.has("available") || item.get("available").getAsBoolean()));
                 }
                 String message = root.has("message") ? root.get("message").getAsString() : "";
                 context.client().gui.setScreen(new SpawnSelectorScreen(teams, message, menuText));
@@ -42,9 +43,18 @@ public class SpawnSelectorClient implements ClientModInitializer {
                 context.client().gui.setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список территорий.", Map.of()));
             }
         });
+        ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.TeamsUpdate.TYPE, (payload, context) -> {
+            try {
+                JsonArray updates = JsonParser.parseString(payload.json()).getAsJsonArray();
+                context.client().execute(() -> {
+                    if (context.client().gui.getScreen() instanceof SpawnSelectorScreen screen)
+                        screen.updateTeams(updates);
+                });
+            } catch (Exception ignored) { }
+        });
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE,
                 (payload, context) -> context.client().gui.setScreen(null));
     }
 
-    public record SpawnTeamView(String name, String description, String image, int count, int max, String color, String countText) {}
+    public record SpawnTeamView(String name, String description, String image, int count, int max, String color, String countText, boolean available) {}
 }
