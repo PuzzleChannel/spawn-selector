@@ -143,6 +143,9 @@ public final class SpawnMenuHandler {
                 reject(player, SpawnConfig.menuText.errorTeleport);
                 return;
             }
+            // Free survival must reset any territory LuckPerms parent (e.g. africa)
+            // back to the default group instead of leaving the previous group assigned.
+            assignLuckPermsGroup(player, "default");
             OPEN_MENUS.remove(player.getUUID());
             SpawnData.markSpawnSelected(player);
             ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
@@ -209,7 +212,7 @@ public final class SpawnMenuHandler {
         }
 
         // Assign the matching LuckPerms group and replace the player's previous parent groups.
-        // Free survival (spawnIndex == 3) exits earlier and deliberately keeps the default group.
+        // Free survival resets the parent to "default" in its dedicated branch above.
         assignLuckPermsGroup(player, spawn.team);
 
         OPEN_MENUS.remove(player.getUUID());
@@ -220,7 +223,8 @@ public final class SpawnMenuHandler {
     private static void assignLuckPermsGroup(ServerPlayer player, String group) {
         if (player == null || group == null
                 || !group.matches("[a-zA-Z0-9_-]{1,32}")
-                || !(group.equals("europe") || group.equals("africa") || group.equals("avstralia"))) {
+                || !(group.equals("europe") || group.equals("africa")
+                || group.equals("avstralia") || group.equals("default"))) {
             SpawnSelectorMod.LOGGER.error("Отказ от назначения некорректной группы LuckPerms: '{}'", group);
             return;
         }
