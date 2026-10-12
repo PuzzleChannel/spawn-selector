@@ -250,8 +250,12 @@ public class SpawnSelectorScreen extends Screen {
                 }
                 int drawX = x + (w - drawW) / 2;
                 int drawY = y + (h - drawH) / 2;
-                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0,
-                        sourceW, sourceH, sourceW, sourceH, drawW, drawH);
+                // The scaled blit overload takes the source region dimensions first,
+                // followed by the destination dimensions and full texture dimensions.
+                // Use a normalized full-texture UV region so non-power-of-two images
+                // are scaled across the entire preview rather than occupying the top-left.
+                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0.0F, 0.0F,
+                        drawW, drawH, sourceW, sourceH, drawW, drawH);
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background if an optional image is missing.
