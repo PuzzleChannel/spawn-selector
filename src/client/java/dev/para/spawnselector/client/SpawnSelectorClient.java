@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class SpawnSelectorClient implements ClientModInitializer {
+    private static volatile SpawnSelectorScreen activeScreen;
     @Override public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.OpenMenu.TYPE, (payload, context) -> {
             try {
@@ -38,22 +39,31 @@ public class SpawnSelectorClient implements ClientModInitializer {
                             !item.has("available") || item.get("available").getAsBoolean()));
                 }
                 String message = root.has("message") ? root.get("message").getAsString() : "";
-                context.client().gui.setScreen(new SpawnSelectorScreen(teams, message, menuText));
+                context.client().execute(() -> {
+                    activeScreen = new SpawnSelectorScreen(teams, message, menuText);
+                    context.client().gui.setScreen(activeScreen);
+                });
             } catch (Exception e) {
-                context.client().gui.setScreen(new SpawnSelectorScreen(List.of(), "Не удалось загрузить список территорий.", Map.of()));
+                context.client().execute(() -> {
+                    activeScreen = new SpawnSelectorScreen(List.of(), "Не удалось загрузить список территорий.", Map.of());
+                    context.client().gui.setScreen(activeScreen);
+                });
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.TeamsUpdate.TYPE, (payload, context) -> {
             try {
                 JsonArray updates = JsonParser.parseString(payload.json()).getAsJsonArray();
                 context.client().execute(() -> {
-                    if (context.client().screen instanceof SpawnSelectorScreen screen)
-                        screen.updateTeams(updates);
+                    SpawnSelectorScreen screen = activeScreen;
+                    if (screen != null) screen.updateTeams(updates);
                 });
             } catch (Exception ignored) { }
         });
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE,
-                (payload, context) -> context.client().gui.setScreen(null));
+                (payload, context) -> context.client().execute(() -> {
+                    activeScreen = null;
+                    context.client().gui.setScreen(null);
+                }));
     }
 
     public record SpawnTeamView(String name, String description, String image, int count, int max, String color, String countText, boolean available) {}
