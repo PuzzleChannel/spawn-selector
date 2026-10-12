@@ -18,6 +18,7 @@ public class SpawnSelectorScreen extends Screen {
     private int hovered = -1;
     private boolean freeHovered;
     private boolean sending;
+    private int confirmingChoice = -1;
     private int panelX, panelY, panelW, panelH;
 
     public SpawnSelectorScreen(List<SpawnTeamView> teams, String message) {
@@ -89,6 +90,30 @@ public class SpawnSelectorScreen extends Screen {
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
         else if (sending) drawCentered(g, "Загрузка…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
+        if (confirmingChoice >= 0) drawConfirmation(g);
+    }
+
+    private void drawConfirmation(GuiGraphicsExtractor g) {
+        int w = Math.min(480, width - 24);
+        int h = 190;
+        int x = (width - w) / 2;
+        int y = (height - h) / 2;
+        g.fill(0, 0, width, height, 0xD9000000);
+        g.fill(x - 3, y - 3, x + w + 3, y + h + 3, 0xFF111111);
+        g.fill(x, y, x + w, y + h, 0xFF373737);
+        g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFF242424);
+        String name = confirmingChoice == 3 ? "Свободное выживание" : teams.get(confirmingChoice).name();
+        String description = confirmingChoice == 3
+                ? "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно."
+                : teams.get(confirmingChoice).description();
+        drawCentered(g, "ПОДТВЕРЖДЕНИЕ ВЫБОРА", width / 2, y + 18, 0xFFFFD46A);
+        drawCentered(g, clip(name, w - 28), width / 2, y + 42, 0xFFFFFFFF);
+        drawWrapped(g, description, x + 18, y + 62, w - 36, 0xFFE0E0E0, y + 112);
+        int buttonY = y + h - 48;
+        g.fill(x + 24, buttonY, x + w / 2 - 8, buttonY + 28, 0xFF426D45);
+        g.fill(x + w / 2 + 8, buttonY, x + w - 24, buttonY + 28, 0xFF6B4141);
+        drawCentered(g, "Подтвердить", x + (w / 2 - 8 + 24) / 2, buttonY + 9, 0xFFFFFFFF);
+        drawCentered(g, "Назад", x + w - 24 - (w / 2 - 16) / 2, buttonY + 9, 0xFFFFFFFF);
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
@@ -165,16 +190,32 @@ public class SpawnSelectorScreen extends Screen {
         double mouseX = event.x();
         double mouseY = event.y();
         if (event.button() != 0 || sending) return false;
+        if (confirmingChoice >= 0) {
+            int w = Math.min(480, width - 24);
+            int h = 190;
+            int x = (width - w) / 2;
+            int y = (height - h) / 2;
+            int buttonY = y + h - 48;
+            if (inside(mouseX, mouseY, x + 24, buttonY, w / 2 - 32, 28)) {
+                int choice = confirmingChoice;
+                confirmingChoice = -1;
+                sendChoice(choice);
+            } else if (inside(mouseX, mouseY, x + w / 2 + 8, buttonY, w / 2 - 32, 28)) {
+                confirmingChoice = -1;
+                message = "";
+            }
+            return true;
+        }
         int leftX = panelX + 14;
         int leftW = Math.min(246, panelW / 2 - 22);
         int cardY = panelY + 66;
         int cardH = Math.min(61, Math.max(46, (panelH - 168) / 3));
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + 7);
-            if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) { sendChoice(i); return true; }
+            if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) { confirmingChoice = i; message = ""; return true; }
         }
         int freeY = cardY + 3 * (cardH + 7) + 2;
-        if (inside(mouseX, mouseY, leftX, freeY, leftW, 40)) { sendChoice(3); return true; }
+        if (inside(mouseX, mouseY, leftX, freeY, leftW, 40)) { confirmingChoice = 3; message = ""; return true; }
         return super.mouseClicked(event, doubleClick);
     }
     private void sendChoice(int index) {
