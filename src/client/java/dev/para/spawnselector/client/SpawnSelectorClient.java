@@ -33,8 +33,14 @@ public class SpawnSelectorClient implements ClientModInitializer {
                     int max = item.get("max").getAsInt();
                     String countTemplate = menuText.getOrDefault(max > 0 ? "playersLimited" : "players", max > 0 ? "{count}/{max} игроков" : "{count} игроков");
                     String countText = countTemplate.replace("{count}", Integer.toString(count)).replace("{max}", Integer.toString(max));
+                    // Use current built-in artwork even when the server retains older image paths in its config.
+                    String previewImage = switch (i) {
+                        case 0 -> "forest.png";
+                        case 1 -> "plains.png";
+                        default -> "mountains.png";
+                    };
                     teams.add(new SpawnTeamView(item.get("name").getAsString(),
-                            item.get("description").getAsString(), item.get("image").getAsString(),
+                            item.get("description").getAsString(), previewImage,
                             count, max, item.get("color").getAsString(), countText,
                             !item.has("available") || item.get("available").getAsBoolean()));
                 }
