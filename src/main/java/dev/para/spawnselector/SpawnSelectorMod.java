@@ -16,6 +16,7 @@ public class SpawnSelectorMod implements ModInitializer {
         LOGGER.info("Инициализация Spawn Selector...");
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.TeamsUpdate.TYPE, SpawnPayloads.TeamsUpdate.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(SpawnPayloads.Choose.TYPE, (payload, context) ->
                 ((net.minecraft.server.level.ServerLevel) context.player().level()).getServer().execute(() ->
@@ -25,6 +26,7 @@ public class SpawnSelectorMod implements ModInitializer {
         SpawnMenuHandler.register();
         SpawnCommand.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> server.execute(() -> ensureTeamsExist(server)));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(SpawnMenuHandler::tickOpenMenus);
         LOGGER.info("Spawn Selector инициализирован.");
     }
 
