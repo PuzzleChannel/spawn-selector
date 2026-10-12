@@ -4,6 +4,9 @@ import dev.para.spawnselector.client.SpawnSelectorClient.SpawnTeamView;
 import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.screens.Screen;
@@ -27,6 +30,7 @@ public class SpawnSelectorScreen extends Screen {
     private int stickyPreviewChoice = -1;
     private boolean sending;
     private int confirmingChoice = -1;
+    private String lastHoverTarget = "";
     private int panelX, panelY, panelW, panelH;
     private static final Map<Identifier, int[]> IMAGE_SIZES = new ConcurrentHashMap<>();
 
@@ -46,6 +50,7 @@ public class SpawnSelectorScreen extends Screen {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.fill(0, 0, width, height, 0xB9000000);
+        String hoverTarget = "";
         panelW = Math.max(1, Math.min(760, width - 16));
         panelH = Math.max(1, Math.min(440, height - 16));
         panelX = (width - panelW) / 2;
@@ -70,7 +75,11 @@ public class SpawnSelectorScreen extends Screen {
             int y = cardY + i * (cardH + gap);
             boolean unavailable = !teams.get(i).available();
             boolean over = confirmingChoice < 0 && !unavailable && inside(mouseX, mouseY, leftX, y, leftW, cardH);
-            if (over) { hovered = i; stickyPreviewChoice = i; }
+            if (over) {
+                hovered = i;
+                stickyPreviewChoice = i;
+                hoverTarget = "territory_" + i;
+            }
             g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? color("styleAccent", 0xFFFFD46A) : unavailable ? 0xFF663B3B : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : color("styleCard", 0xFF303030));
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
@@ -83,6 +92,7 @@ public class SpawnSelectorScreen extends Screen {
         int freeH = compactLayout ? cardH : 40;
         boolean freeOver = confirmingChoice < 0 && inside(mouseX, mouseY, leftX, freeY, leftW, freeH);
         freeHovered = freeOver;
+        if (freeOver) hoverTarget = "free_survival";
         g.fill(leftX - 1, freeY - 1, leftX + leftW + 1, freeY + freeH + 1, freeOver ? 0xFFFFD46A : 0xFF777777);
         g.fill(leftX, freeY, leftX + leftW, freeY + freeH, freeOver ? 0xFF315043 : 0xFF303030);
         if (compactLayout) {
@@ -116,10 +126,15 @@ public class SpawnSelectorScreen extends Screen {
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
         else if (sending) drawCentered(g, t("loading", "Загрузка…"), width / 2, panelY + panelH - 15, 0xFFFFD46A);
-        if (confirmingChoice >= 0) drawConfirmation(g);
+        if (confirmingChoice >= 0) {
+            int confirmationHover = hoveredConfirmationButton(mouseX, mouseY);
+            hoverTarget = confirmationHover == 0 ? "confirm" : confirmationHover == 1 ? "back" : "";
+            drawConfirmation(g, mouseX, mouseY);
+        }
+        updateHoverSound(hoverTarget);
     }
 
-    private void drawConfirmation(GuiGraphicsExtractor g) {
+    private void drawConfirmation(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         int w = Math.max(1, Math.min(480, width - 16));
         int h = Math.max(140, Math.min(190, height - 16));
         int x = (width - w) / 2;
@@ -137,10 +152,52 @@ public class SpawnSelectorScreen extends Screen {
         drawWrapped(g, description, x + 12, y + 54, w - 24, 0xFFE0E0E0, y + h - 48);
         int buttonY = y + h - 36;
         int buttonW = Math.max(1, (w - 36) / 2);
-        g.fill(x + 12, buttonY, x + 12 + buttonW, buttonY + 24, color("styleConfirmButton", 0xFF426D45));
-        g.fill(x + w - 12 - buttonW, buttonY, x + w - 12, buttonY + 24, color("styleBackButton", 0xFF6B4141));
-        drawCentered(g, clip(t("confirmButton", "Подтвердить"), buttonW - 8), x + 12 + buttonW / 2, buttonY + 8, 0xFFFFFFFF);
-        drawCentered(g, clip(t("backButton", "Назад"), buttonW - 8), x + w - 12 - buttonW / 2, buttonY + 8, 0xFFFFFFFF);
+        int hoveredButton = hoveredConfirmationButton(mouseX, mouseY);
+        boolean confirmHovered = hoveredButton == 0;
+        boolean backHovered = hoveredButton == 1;
+        int accent = color("styleAccent", 0xFFFFD46A);
+
+        // A bright frame and lighter fill make the hovered action obvious.
+        g.fill(x + 10, buttonY - 2, x + 14 + buttonW, buttonY + 26,
+                confirmHovered ? accent : 0xFF777777);
+        g.fill(x + 12, buttonY, x + 12 + buttonW, buttonY + 24,
+                confirmHovered ? 0xFF59815D : color("styleConfirmButton", 0xFF426D45));
+        int backX = x + w - 12 - buttonW;
+        g.fill(backX - 2, buttonY - 2, backX + buttonW + 2, buttonY + 26,
+                backHovered ? accent : 0xFF777777);
+        g.fill(backX, buttonY, backX + buttonW, buttonY + 24,
+                backHovered ? 0xFF8B5555 : color("styleBackButton", 0xFF6B4141));
+
+        drawCentered(g, clip(t("confirmButton", "Подтвердить"), buttonW - 8),
+                x + 12 + buttonW / 2, buttonY + 8, 0xFFFFFFFF);
+        drawCentered(g, clip(t("backButton", "Назад"), buttonW - 8),
+                backX + buttonW / 2, buttonY + 8, 0xFFFFFFFF);
+    }
+
+    /** 0 = Confirm, 1 = Back, -1 = no button under the pointer. */
+    private int hoveredConfirmationButton(double mouseX, double mouseY) {
+        if (confirmingChoice < 0) return -1;
+        int w = Math.max(1, Math.min(480, width - 16));
+        int h = Math.max(140, Math.min(190, height - 16));
+        int x = (width - w) / 2;
+        int y = (height - h) / 2;
+        int buttonY = y + h - 36;
+        int buttonW = Math.max(1, (w - 36) / 2);
+        if (inside(mouseX, mouseY, x + 12, buttonY, buttonW, 24)) return 0;
+        if (inside(mouseX, mouseY, x + w - 12 - buttonW, buttonY, buttonW, 24)) return 1;
+        return -1;
+    }
+
+    private void updateHoverSound(String target) {
+        if (!target.equals(lastHoverTarget) && !target.isEmpty()) {
+            playUiSound(1.45F, 0.18F);
+        }
+        lastHoverTarget = target;
+    }
+
+    private void playUiSound(float pitch, float volume) {
+        Minecraft.getInstance().getSoundManager().play(
+                SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, pitch, volume));
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
@@ -173,27 +230,6 @@ public class SpawnSelectorScreen extends Screen {
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background black if an optional image is missing.
-        }
-    }
-
-    private void drawPlaceholderLandscape(GuiGraphicsExtractor g, int x, int y, int w, int h, int variant) {
-        int sky = variant == 2 ? 0xFF6C8CA3 : variant == 1 ? 0xFF87B8D8 : 0xFF78A9D0;
-        g.fill(x, y, x + w, y + h, sky);
-        g.fill(x + w / 12, y + h / 5, x + w / 12 + Math.max(8, w / 6), y + h / 5 + Math.max(4, h / 18), 0xFFE4E9E5);
-        g.fill(x + w / 2, y + h / 7, x + w / 2 + Math.max(8, w / 5), y + h / 7 + Math.max(4, h / 18), 0xFFE4E9E5);
-        if (variant == 2) {
-            g.fill(x, y + h / 2, x + w / 3, y + h, 0xFF536D7B);
-            g.fill(x + w / 5, y + h / 3, x + w / 2, y + h, 0xFF6F8997);
-            g.fill(x + w / 2, y + h / 2, x + w, y + h, 0xFF425E6A);
-            g.fill(x + w / 3, y + h * 3 / 4, x + w * 2 / 3, y + h, 0xFF557B43);
-        } else {
-            g.fill(x, y + h * 2 / 3, x + w, y + h, variant == 1 ? 0xFF8BA85C : 0xFF527A3D);
-            g.fill(x + w / 5, y + h / 2, x + w / 2, y + h * 3 / 4, variant == 1 ? 0xFF9EB96C : 0xFF426D34);
-            g.fill(x + w * 2 / 3, y + h / 2, x + w * 5 / 6, y + h * 3 / 4, 0xFF426D34);
-            if (variant == 1) {
-                g.fill(x + w / 3, y + h * 2 / 3, x + w / 2, y + h * 5 / 6, 0xFF9C7652);
-                g.fill(x + w / 3, y + h / 2, x + w / 2, y + h * 2 / 3, 0xFFD5C29A);
-            }
         }
     }
 
@@ -233,20 +269,17 @@ public class SpawnSelectorScreen extends Screen {
         double mouseY = event.y();
         if (event.button() != 0 || sending) return false;
         if (confirmingChoice >= 0) {
-            int w = Math.max(1, Math.min(480, width - 16));
-            int h = Math.max(140, Math.min(190, height - 16));
-            int x = (width - w) / 2;
-            int y = (height - h) / 2;
-            int buttonY = y + h - 36;
-            int buttonW = Math.max(1, (w - 36) / 2);
-            if (inside(mouseX, mouseY, x + 12, buttonY, buttonW, 24)) {
+            int hoveredButton = hoveredConfirmationButton(mouseX, mouseY);
+            if (hoveredButton == 0) {
                 int choice = confirmingChoice;
                 confirmingChoice = -1;
                 sendChoice(choice);
-            } else if (inside(mouseX, mouseY, x + w - 12 - buttonW, buttonY, buttonW, 24)) {
+            } else if (hoveredButton == 1) {
+                playUiSound(1.0F, 0.45F);
                 stickyPreviewChoice = confirmingChoice;
                 confirmingChoice = -1;
                 message = "";
+                lastHoverTarget = "";
             }
             return true;
         }
@@ -259,12 +292,16 @@ public class SpawnSelectorScreen extends Screen {
             int y = cardY + i * (cardH + gap);
             if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) {
                 if (!teams.get(i).available()) { message = t("unavailableMessage", "Эта территория сейчас недоступна. Выберите другую."); return true; }
-                confirmingChoice = i; stickyPreviewChoice = i; message = ""; return true;
+                playUiSound(1.0F, 0.45F);
+                confirmingChoice = i; stickyPreviewChoice = i; message = ""; lastHoverTarget = ""; return true;
             }
         }
         int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
         int freeH = compactLayout ? cardH : 40;
-        if (inside(mouseX, mouseY, leftX, freeY, leftW, freeH)) { confirmingChoice = 3; message = ""; return true; }
+        if (inside(mouseX, mouseY, leftX, freeY, leftW, freeH)) {
+            playUiSound(1.0F, 0.45F);
+            confirmingChoice = 3; message = ""; lastHoverTarget = ""; return true;
+        }
         return super.mouseClicked(event, doubleClick);
     }
     public void updateTeams(JsonArray updates) {
@@ -297,6 +334,7 @@ public class SpawnSelectorScreen extends Screen {
     }
 
     private void sendChoice(int index) {
+        playUiSound(0.9F, 0.9F);
         sending = true; message = "";
         ClientPlayNetworking.send(new SpawnPayloads.Choose(index));
     }
