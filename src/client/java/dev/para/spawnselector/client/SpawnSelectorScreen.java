@@ -12,6 +12,8 @@ import net.minecraft.resources.Identifier;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.imageio.ImageIO;
 
 public class SpawnSelectorScreen extends Screen {
     private final List<SpawnTeamView> teams;
@@ -23,6 +25,7 @@ public class SpawnSelectorScreen extends Screen {
     private boolean sending;
     private int confirmingChoice = -1;
     private int panelX, panelY, panelW, panelH;
+    private static final Map<Identifier, int[]> IMAGE_SIZES = new ConcurrentHashMap<>();
 
     public SpawnSelectorScreen(List<SpawnTeamView> teams, String message, Map<String, String> menuText) {
         super(Component.literal(text(menuText, "windowTitle", "Выбор территории")));
@@ -141,15 +144,27 @@ public class SpawnSelectorScreen extends Screen {
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
         try {
             if (net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(id).isPresent()) {
-                // Every selector illustration uses a 320x180 (16:9) source rectangle.
-                // Keep the full image visible: preserve aspect ratio and letterbox instead of crop/stretch.
-                double scale = Math.min(w / 320.0, h / 180.0);
-                int drawW = Math.max(1, (int) Math.round(320 * scale));
-                int drawH = Math.max(1, (int) Math.round(180 * scale));
+                int[] sourceSize = IMAGE_SIZES.computeIfAbsent(id, key -> {
+                    try {
+                        var resource = net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(key);
+                        if (resource.isPresent()) {
+                            try (var stream = resource.get().open()) {
+                                var data = ImageIO.read(stream);
+                                if (data != null) return new int[]{data.getWidth(), data.getHeight()};
+                            }
+                        }
+                    } catch (Exception ignored) { }
+                    return new int[]{320, 180};
+                });
+                int sourceW = Math.max(1, sourceSize[0]);
+                int sourceH = Math.max(1, sourceSize[1]);
+                double scale = Math.min(w / (double) sourceW, h / (double) sourceH);
+                int drawW = Math.max(1, (int) Math.round(sourceW * scale));
+                int drawH = Math.max(1, (int) Math.round(sourceH * scale));
                 int drawX = x + (w - drawW) / 2;
                 int drawY = y + (h - drawH) / 2;
                 g.fill(x, y, x + w, y + h, 0xFF000000);
-                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0, drawW, drawH, 320, 180);
+                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0, drawW, drawH, sourceW, sourceH);
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background black if an optional image is missing.
