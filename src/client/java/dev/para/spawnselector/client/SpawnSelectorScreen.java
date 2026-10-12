@@ -68,10 +68,11 @@ public class SpawnSelectorScreen extends Screen {
         hovered = -1;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
-            boolean over = confirmingChoice < 0 && teams.get(i).available() && inside(mouseX, mouseY, leftX, y, leftW, cardH);
-            if (over) hovered = i;
-            g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? 0xFFFFD46A : 0xFF777777);
-            g.fill(leftX, y, leftX + leftW, y + cardH, over ? 0xFF51452E : 0xFF303030);
+            boolean unavailable = !teams.get(i).available();
+            boolean over = confirmingChoice < 0 && !unavailable && inside(mouseX, mouseY, leftX, y, leftW, cardH);
+            if (over) { hovered = i; stickyPreviewChoice = i; }
+            g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? color("styleAccent", 0xFFFFD46A) : unavailable ? 0xFF663B3B : 0xFF777777);
+            g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : color("styleCard", 0xFF303030));
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
             g.text(font, clip(teams.get(i).name(), leftW - 28), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
             if (!compactLayout || cardH >= 38) g.text(font, teams.get(i).countText(), leftX + 13, y + 22, 0xFFBEBEBE, true);
@@ -103,8 +104,9 @@ public class SpawnSelectorScreen extends Screen {
                 int textY = previewY + previewH + 10;
                 g.text(font, clip(t("freeName", "Свободное выживание"), previewW), previewX, textY, 0xFFFFD46A, true);
                 drawWrapped(g, t("freeDescription", "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите."), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
-            } else if (hovered >= 0 && hovered < teams.size()) {
-                SpawnTeamView team = teams.get(hovered);
+            } else if ((hovered >= 0 && hovered < teams.size()) || (stickyPreviewChoice >= 0 && stickyPreviewChoice < teams.size())) {
+                int previewChoice = hovered >= 0 && hovered < teams.size() ? hovered : stickyPreviewChoice;
+                SpawnTeamView team = teams.get(previewChoice);
                 drawPreviewImage(g, team.image(), previewX, previewY, previewW, previewH);
                 int textY = previewY + previewH + 10;
                 g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
@@ -242,6 +244,7 @@ public class SpawnSelectorScreen extends Screen {
                 confirmingChoice = -1;
                 sendChoice(choice);
             } else if (inside(mouseX, mouseY, x + w - 12 - buttonW, buttonY, buttonW, 24)) {
+                stickyPreviewChoice = confirmingChoice;
                 confirmingChoice = -1;
                 message = "";
             }
