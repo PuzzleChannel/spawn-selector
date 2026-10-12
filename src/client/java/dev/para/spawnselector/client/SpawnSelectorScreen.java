@@ -83,9 +83,18 @@ public class SpawnSelectorScreen extends Screen {
             g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? color("styleAccent", 0xFFFFD46A) : unavailable ? 0xFF663B3B : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : color("styleCard", 0xFF303030));
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
-            g.text(font, clip(teams.get(i).name(), leftW - 28), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
-            if (!compactLayout || cardH >= 38) g.text(font, teams.get(i).countText(), leftX + 13, y + 22, 0xFFBEBEBE, true);
-            if (!compactLayout) g.text(font, clip(unavailable ? t("unavailable", "Недоступно") : t("chooseButton", "Выбрать"), leftW - 30), leftX + 18, y + cardH - 15, unavailable ? 0xFFFF8888 : color("styleAccent", 0xFFFFD46A), true);
+            int textW = leftW - 28;
+            if (cardH >= 38) {
+                int thumbW = Math.min(92, Math.max(1, leftW / 3));
+                int thumbH = Math.max(1, cardH - 8);
+                int thumbX = leftX + leftW - thumbW - 4;
+                drawPreviewImage(g, teams.get(i).image(), thumbX, y + 4, thumbW, thumbH);
+                if (unavailable) g.fill(thumbX, y + 4, thumbX + thumbW, y + 4 + thumbH, 0x99000000);
+                textW = Math.max(1, thumbX - (leftX + 13) - 5);
+            }
+            g.text(font, clip(teams.get(i).name(), textW), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
+            if (!compactLayout || cardH >= 38) g.text(font, clip(teams.get(i).countText(), textW), leftX + 13, y + 22, 0xFFBEBEBE, true);
+            if (!compactLayout) g.text(font, clip(unavailable ? t("unavailable", "Недоступно") : t("chooseButton", "Выбрать"), textW), leftX + 18, y + cardH - 15, unavailable ? 0xFFFF8888 : color("styleAccent", 0xFFFFD46A), true);
         }
 
         int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
@@ -98,8 +107,13 @@ public class SpawnSelectorScreen extends Screen {
         if (compactLayout) {
             drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - 12), leftX + leftW / 2, freeY + Math.max(5, (freeH - 9) / 2), 0xFFFFFFFF);
         } else {
-            drawCentered(g, t("freeName", "Свободное выживание"), leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
-            drawCentered(g, t("freeSubtitle", "Случайный выбор спавна"), leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
+            int freeThumbW = Math.min(68, Math.max(1, leftW / 3));
+            int freeThumbH = Math.max(1, freeH - 8);
+            int freeThumbX = leftX + leftW - freeThumbW - 4;
+            drawPreviewImage(g, "free_survival.png", freeThumbX, freeY + 4, freeThumbW, freeThumbH);
+            int freeTextCenter = leftX + (leftW - freeThumbW - 8) / 2;
+            drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - freeThumbW - 18), freeTextCenter, freeY + 7, 0xFFFFFFFF);
+            drawCentered(g, clip(t("freeSubtitle", "Случайный выбор спавна"), leftW - freeThumbW - 18), freeTextCenter, freeY + 22, 0xFFBFE9CB);
         }
 
         if (!compactLayout) {
