@@ -85,8 +85,10 @@ public class SpawnSelectorScreen extends Screen {
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
             int textW = leftW - 28;
             if (cardH >= 38) {
-                int thumbW = Math.min(92, Math.max(1, leftW / 3));
                 int thumbH = Math.max(1, cardH - 8);
+                int thumbW = Math.min(Math.min(92, Math.max(1, leftW / 3)),
+                        Math.max(1, (int) Math.round(thumbH * (940.0 / 529.0))));
+                thumbH = Math.max(1, Math.min(thumbH, (int) Math.round(thumbW * (529.0 / 940.0))));
                 int thumbX = leftX + leftW - thumbW - 4;
                 drawPreviewImage(g, teams.get(i).image(), thumbX, y + 4, thumbW, thumbH);
                 if (unavailable) g.fill(thumbX, y + 4, thumbX + thumbW, y + 4 + thumbH, 0x99000000);
@@ -107,8 +109,10 @@ public class SpawnSelectorScreen extends Screen {
         if (compactLayout) {
             drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - 12), leftX + leftW / 2, freeY + Math.max(5, (freeH - 9) / 2), 0xFFFFFFFF);
         } else {
-            int freeThumbW = Math.min(68, Math.max(1, leftW / 3));
             int freeThumbH = Math.max(1, freeH - 8);
+            int freeThumbW = Math.min(Math.min(68, Math.max(1, leftW / 3)),
+                    Math.max(1, (int) Math.round(freeThumbH * (940.0 / 529.0))));
+            freeThumbH = Math.max(1, Math.min(freeThumbH, (int) Math.round(freeThumbW * (529.0 / 940.0))));
             int freeThumbX = leftX + leftW - freeThumbW - 4;
             drawPreviewImage(g, "free_survival.png", freeThumbX, freeY + 4, freeThumbW, freeThumbH);
             int freeTextCenter = leftX + (leftW - freeThumbW - 8) / 2;
@@ -120,7 +124,10 @@ public class SpawnSelectorScreen extends Screen {
             int previewX = leftX + leftW + 16;
             int previewW = Math.max(1, panelX + panelW - 14 - previewX);
             int previewY = panelY + 66;
-            int previewH = Math.max(60, Math.min(220, panelH - 170));
+            // Keep the preview rectangle at the PNG aspect ratio (940x529):
+            // the complete image fits exactly, without letterboxing or distortion.
+            int previewH = Math.max(1, Math.min(Math.min(220, panelH - 170),
+                    (int) Math.round(previewW * (529.0 / 940.0))));
             g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
             g.fill(previewX, previewY, previewX + previewW, previewY + previewH, 0xFF000000);
             if (freeHovered) {
@@ -235,24 +242,22 @@ public class SpawnSelectorScreen extends Screen {
                 int sourceW = Math.max(1, sourceSize[0]);
                 int sourceH = Math.max(1, sourceSize[1]);
 
-                // Fill the entire preview rectangle ("cover" scaling). Crop only the
-                // excess from the center instead of leaving black bars at the sides.
-                double targetAspect = w / (double) h;
+                // Draw the whole source image, without cropping or stretching.
+                // Callers size the target rectangle to the source aspect ratio.
+                int drawW = w;
+                int drawH = h;
                 double sourceAspect = sourceW / (double) sourceH;
-                int u = 0;
-                int v = 0;
-                int cropW = sourceW;
-                int cropH = sourceH;
-                if (sourceAspect > targetAspect) {
-                    cropW = Math.max(1, Math.min(sourceW, (int) Math.round(sourceH * targetAspect)));
-                    u = (sourceW - cropW) / 2;
-                } else if (sourceAspect < targetAspect) {
-                    cropH = Math.max(1, Math.min(sourceH, (int) Math.round(sourceW / targetAspect)));
-                    v = (sourceH - cropH) / 2;
+                if (Math.abs((w / (double) h) - sourceAspect) > 0.003) {
+                    if (w / (double) h > sourceAspect) {
+                        drawW = Math.max(1, (int) Math.round(h * sourceAspect));
+                    } else {
+                        drawH = Math.max(1, (int) Math.round(w / sourceAspect));
+                    }
                 }
-
-                g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, cropW, cropH,
-                        sourceW, sourceH, w, h);
+                int drawX = x + (w - drawW) / 2;
+                int drawY = y + (h - drawH) / 2;
+                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0,
+                        sourceW, sourceH, sourceW, sourceH, drawW, drawH);
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background if an optional image is missing.
