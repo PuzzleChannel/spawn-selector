@@ -64,6 +64,7 @@ public final class SpawnMenuHandler {
             teams.add(team);
         }
         root.add("teams", teams);
+        root.add("menuText", GSON.toJsonTree(SpawnConfig.menuText));
         root.addProperty("message", message == null ? "" : message);
         ServerPlayNetworking.send(player, new SpawnPayloads.OpenMenu(GSON.toJson(root)));
     }
@@ -86,11 +87,11 @@ public final class SpawnMenuHandler {
         if (spawnIndex == 3) {
             BlockPos destination = findSafeFreeSpawn(level);
             if (destination == null) {
-                reject(player, "Не удалось найти безопасное место в зоне свободного выживания. Попробуйте ещё раз.");
+                reject(player, SpawnConfig.menuText.errorFreeSpawn);
                 return;
             }
             if (!teleportAndSetRespawn(player, level, destination, 0.0f)) {
-                reject(player, "Не удалось установить точку появления. Попробуйте ещё раз.");
+                reject(player, SpawnConfig.menuText.errorTeleport);
                 return;
             }
             OPEN_MENUS.remove(player.getUUID());
@@ -100,7 +101,7 @@ public final class SpawnMenuHandler {
         }
 
         if (spawnIndex < 0 || spawnIndex >= 3 || spawnIndex >= SpawnConfig.spawnPoints.size()) {
-            reject(player, "Этот вариант выбора недоступен.");
+            reject(player, SpawnConfig.menuText.errorInvalidChoice);
             return;
         }
 
@@ -108,7 +109,7 @@ public final class SpawnMenuHandler {
         Scoreboard scoreboard = server.getScoreboard();
         PlayerTeam targetTeam = scoreboard.getPlayerTeam(spawn.team);
         if (targetTeam == null) {
-            reject(player, "Эта команда временно недоступна. Сообщите администрации.");
+            reject(player, SpawnConfig.menuText.errorTeamUnavailable);
             SpawnSelectorMod.LOGGER.error("Не найдена scoreboard-команда '{}' для точки '{}'.", spawn.team, spawn.name);
             return;
         }
@@ -123,18 +124,16 @@ public final class SpawnMenuHandler {
         if (smallestCount == Integer.MAX_VALUE) smallestCount = 0;
 
         if (SpawnConfig.maxPlayersPerTeam > 0 && targetCount >= SpawnConfig.maxPlayersPerTeam) {
-            reject(player, "Команда «" + spawn.name + "» уже заполнена (" +
-                    targetCount + "/" + SpawnConfig.maxPlayersPerTeam + "). Выберите другую команду.");
+            reject(player, format(SpawnConfig.menuText.errorTeamFull, spawn.name, targetCount, SpawnConfig.maxPlayersPerTeam));
             return;
         }
         if (targetCount + 1 - smallestCount > SpawnConfig.maxTeamImbalance) {
-            reject(player, "В команде «" + spawn.name +
-                    "» сейчас слишком много игроков. Выберите менее заполненную команду.");
+            reject(player, format(SpawnConfig.menuText.errorTeamImbalanced, spawn.name, targetCount, SpawnConfig.maxPlayersPerTeam));
             return;
         }
 
         if (spawn.y < level.getMinY() || spawn.y >= level.getMaxY()) {
-            reject(player, "Точка появления настроена некорректно. Сообщите администрации.");
+            reject(player, SpawnConfig.menuText.errorInvalidY);
             SpawnSelectorMod.LOGGER.error("Y={} вне границ мира для точки '{}'.", spawn.y, spawn.name);
             return;
         }
@@ -143,7 +142,7 @@ public final class SpawnMenuHandler {
         // destination to a dry surface block with open sky and non-negative Y.
         BlockPos destination = findSafeSurfaceNear(level, spawn.x, spawn.z, SpawnConfig.radius);
         if (destination == null) {
-            reject(player, "Не удалось найти подходящее место на поверхности этой территории. Сообщите администрации.");
+            reject(player, SpawnConfig.menuText.errorNoSurface);
             SpawnSelectorMod.LOGGER.warn("Не найдена безопасная поверхность для территории '{}' около X={}, Z={}.",
                     spawn.name, spawn.x, spawn.z);
             return;
@@ -151,7 +150,7 @@ public final class SpawnMenuHandler {
 
         boolean added = scoreboard.addPlayerToTeam(player.getScoreboardName(), targetTeam);
         if (!added && scoreboard.getPlayersTeam(player.getScoreboardName()) != targetTeam) {
-            reject(player, "Не удалось назначить команду. Попробуйте ещё раз или обратитесь к администрации.");
+            reject(player, SpawnConfig.menuText.errorAssignTeam);
             return;
         }
         if (!teleportAndSetRespawn(player, level, destination, spawn.yaw)) {
@@ -163,6 +162,11 @@ public final class SpawnMenuHandler {
         OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    private static String format(String template, String name, int count, int max) {
+        return (template == null ? "" : template).replace("{name}", name == null ? "" : name)
+                .replace("{count}", Integer.toString(count)).replace("{max}", Integer.toString(max));
     }
 
     private static BlockPos findSafeSurfaceNear(ServerLevel level, double centerX, double centerZ, int radius) {
