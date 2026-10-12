@@ -14,6 +14,12 @@ public final class SpawnPayloads {
                 StreamCodec.composite(ByteBufCodecs.STRING_UTF8, OpenMenu::json, OpenMenu::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
+    public record TeamsUpdate(String json) implements CustomPacketPayload {
+        public static final Type<TeamsUpdate> TYPE = new Type<>(Identifier.fromNamespaceAndPath("spawnselector", "teams_update"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, TeamsUpdate> CODEC =
+                StreamCodec.composite(ByteBufCodecs.STRING_UTF8, TeamsUpdate::json, TeamsUpdate::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
     public record Choose(int index) implements CustomPacketPayload {
         public static final Type<Choose> TYPE = new Type<>(Identifier.fromNamespaceAndPath("spawnselector", "choose"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Choose> CODEC =
