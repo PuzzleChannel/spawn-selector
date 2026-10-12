@@ -47,7 +47,7 @@ public class SpawnSelectorClient implements ClientModInitializer {
             try {
                 JsonArray updates = JsonParser.parseString(payload.json()).getAsJsonArray();
                 context.client().execute(() -> {
-                    if (context.client().gui.getScreen() instanceof SpawnSelectorScreen screen)
+                    if (context.client().screen instanceof SpawnSelectorScreen screen)
                         screen.updateTeams(updates);
                 });
             } catch (Exception ignored) { }
