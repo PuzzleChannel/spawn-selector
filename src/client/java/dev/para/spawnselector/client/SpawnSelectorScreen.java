@@ -122,12 +122,15 @@ public class SpawnSelectorScreen extends Screen {
 
         if (!compactLayout) {
             int previewX = leftX + leftW + 16;
-            int previewW = Math.max(1, panelX + panelW - 14 - previewX);
+            int availablePreviewW = Math.max(1, panelX + panelW - 14 - previewX);
             int previewY = panelY + 66;
-            // Keep the preview rectangle at the PNG aspect ratio (940x529):
-            // the complete image fits exactly, without letterboxing or distortion.
-            int previewH = Math.max(1, Math.min(Math.min(220, panelH - 170),
-                    (int) Math.round(previewW * (529.0 / 940.0))));
+            // Fit the preview frame itself to the source image ratio. Previously
+            // previewH was capped at 220 while previewW stayed wider, leaving
+            // black gutters on both sides of the correctly rendered image.
+            int maxPreviewH = Math.max(1, Math.min(220, panelH - 170));
+            int previewW = Math.max(1, Math.min(availablePreviewW,
+                    (int) Math.round(maxPreviewH * (940.0 / 529.0))));
+            int previewH = Math.max(1, (int) Math.round(previewW * (529.0 / 940.0)));
             g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
             g.fill(previewX, previewY, previewX + previewW, previewY + previewH, 0xFF000000);
             if (freeHovered) {
