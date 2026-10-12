@@ -208,9 +208,42 @@ public final class SpawnMenuHandler {
             return;
         }
 
+        // Assign the matching LuckPerms group and replace the player's previous parent groups.
+        // Free survival (spawnIndex == 3) exits earlier and deliberately keeps the default group.
+        assignLuckPermsGroup(player, spawn.team);
+
         OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    private static void assignLuckPermsGroup(ServerPlayer player, String group) {
+        if (player == null || group == null
+                || !group.matches("[a-zA-Z0-9_-]{1,32}")
+                || !(group.equals("europe") || group.equals("africa") || group.equals("avstralia"))) {
+            SpawnSelectorMod.LOGGER.error("Отказ от назначения некорректной группы LuckPerms: '{}'", group);
+            return;
+        }
+
+        MinecraftServer server = ((ServerLevel) player.level()).getServer();
+        if (server == null) return;
+
+        String command = "lp user " + player.getGameProfile().name() + " parent set " + group;
+        try {
+            int result = server.getCommands().getDispatcher().execute(
+                    command, server.createCommandSourceStack().withSuppressedOutput());
+            if (result == 0) {
+                SpawnSelectorMod.LOGGER.warn("LuckPerms не подтвердил назначение группы '{}' игроку {}.",
+                        group, player.getGameProfile().name());
+            } else {
+                SpawnSelectorMod.LOGGER.info("Игроку {} назначена группа LuckPerms '{}'; прежние родительские группы заменены.",
+                        player.getGameProfile().name(), group);
+            }
+        } catch (CommandSyntaxException e) {
+            // Do not block spawn selection if LuckPerms is absent or its command is unavailable.
+            SpawnSelectorMod.LOGGER.warn("Не удалось выполнить команду LuckPerms для игрока {}. Проверьте, что LuckPerms установлен и доступен на сервере.",
+                    player.getGameProfile().name(), e);
+        }
     }
 
     private static String format(String template, String name, int count, int max) {
