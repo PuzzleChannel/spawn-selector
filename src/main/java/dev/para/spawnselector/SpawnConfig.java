@@ -166,6 +166,14 @@ public class SpawnConfig {
         public String confirmFreeDescription = "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно.";
         public String players = "{count} игроков";
         public String playersLimited = "{count}/{max} игроков";
+        public String unavailable = "Недоступно";
+        public String unavailableMessage = "Эта территория сейчас недоступна. Выберите другую.";
+        // GUI colors accept #RRGGBB or #AARRGGBB.
+        public String styleAccent = "#FFD46A";
+        public String stylePanel = "#373737";
+        public String styleCard = "#303030";
+        public String styleConfirmButton = "#426D45";
+        public String styleBackButton = "#6B4141";
         public String errorLoad = "Не удалось загрузить список территорий.";
         public String errorFreeSpawn = "Не удалось найти безопасное место в зоне свободного выживания. Попробуйте ещё раз.";
         public String errorTeleport = "Не удалось установить точку появления. Попробуйте ещё раз.";
