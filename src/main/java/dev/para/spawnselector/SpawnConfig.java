@@ -25,6 +25,7 @@ public class SpawnConfig {
     public static int maxPlayersPerTeam = 0;
     /** A choice is blocked if it would leave that team this many players above the smallest team. */
     public static int maxTeamImbalance = 3;
+    public static MenuText menuText = new MenuText();
 
     public static void load() {
         CONFIG_FILE.getParentFile().mkdirs();
@@ -38,6 +39,8 @@ public class SpawnConfig {
             ConfigData data = GSON.fromJson(reader, ConfigData.class);
             validate(data);
             spawnPoints = new ArrayList<>(data.spawnPoints);
+            boolean menuTextAdded = data.menuText == null;
+            menuText = menuTextAdded ? new MenuText() : data.menuText;
             // Update only the previous built-in descriptions; preserve any server-owner edits.
             boolean descriptionsUpdated = false;
             boolean teamIdsUpdated = false;
@@ -63,7 +66,7 @@ public class SpawnConfig {
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
-            if (descriptionsUpdated || teamIdsUpdated) save();
+            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
@@ -121,6 +124,7 @@ public class SpawnConfig {
             data.radius = radius;
             data.maxPlayersPerTeam = maxPlayersPerTeam;
             data.maxTeamImbalance = maxTeamImbalance;
+            data.menuText = menuText;
             try (FileWriter writer = new FileWriter(temp)) {
                 GSON.toJson(data, writer);
             }
@@ -139,6 +143,37 @@ public class SpawnConfig {
         public int radius = 10;
         public int maxPlayersPerTeam = 0;
         public int maxTeamImbalance = 3;
+        public MenuText menuText = new MenuText();
+    }
+
+    public static class MenuText {
+        public String windowTitle = "Выбор территории";
+        public String headerTitle = "ВЫБОР ТЕРРИТОРИИ";
+        public String headerSubtitle = "Выберите территорию или свободное выживание";
+        public String chooseButton = "Выбрать";
+        public String freeName = "Свободное выживание";
+        public String freeSubtitle = "Случайный выбор спавна";
+        public String freeDescription = "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите.";
+        public String emptyPreviewTitle = "Выберите вариант";
+        public String emptyPreviewSubtitle = "чтобы увидеть описание";
+        public String loading = "Загрузка…";
+        public String confirmTitle = "ПОДТВЕРЖДЕНИЕ ВЫБОРА";
+        public String confirmButton = "Подтвердить";
+        public String backButton = "Назад";
+        public String confirmFreeDescription = "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно.";
+        public String players = "{count} игроков";
+        public String playersLimited = "{count}/{max} игроков";
+        public String errorLoad = "Не удалось загрузить список территорий.";
+        public String errorFreeSpawn = "Не удалось найти безопасное место в зоне свободного выживания. Попробуйте ещё раз.";
+        public String errorTeleport = "Не удалось установить точку появления. Попробуйте ещё раз.";
+        public String errorInvalidChoice = "Этот вариант выбора недоступен.";
+        public String errorTeamUnavailable = "Эта команда временно недоступна. Сообщите администрации.";
+        public String errorTeamFull = "Территория «{name}» уже заполнена ({count}/{max}). Выберите другую территорию.";
+        public String errorTeamImbalanced = "На территории «{name}» сейчас слишком много игроков. Выберите менее заполненную территорию.";
+        public String errorInvalidY = "Точка появления настроена некорректно. Сообщите администрации.";
+        public String errorNoSurface = "Не удалось найти подходящее место на поверхности этой территории. Сообщите администрации.";
+        public String errorAssignTeam = "Не удалось назначить команду. Попробуйте ещё раз или обратитесь к администрации.";
+        public String errorSpawnpoint = "Не удалось установить точку появления. Попробуйте ещё раз.";
     }
 
     public static class SpawnPoint {
