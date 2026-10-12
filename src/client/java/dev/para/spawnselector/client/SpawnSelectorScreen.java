@@ -11,9 +11,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.List;
+import java.util.Map;
 
 public class SpawnSelectorScreen extends Screen {
     private final List<SpawnTeamView> teams;
+    private final Map<String, String> menuText;
+    private boolean compactLayout;
     private String message;
     private int hovered = -1;
     private boolean freeHovered;
@@ -21,99 +24,118 @@ public class SpawnSelectorScreen extends Screen {
     private int confirmingChoice = -1;
     private int panelX, panelY, panelW, panelH;
 
-    public SpawnSelectorScreen(List<SpawnTeamView> teams, String message) {
-        super(Component.literal("Выбор территории"));
+    public SpawnSelectorScreen(List<SpawnTeamView> teams, String message, Map<String, String> menuText) {
+        super(Component.literal(text(menuText, "windowTitle", "Выбор территории")));
         this.teams = teams;
         this.message = message == null ? "" : message;
+        this.menuText = menuText == null ? Map.of() : Map.copyOf(menuText);
     }
+
+    private static String text(Map<String, String> values, String key, String fallback) {
+        String value = values == null ? null : values.get(key);
+        return value == null ? fallback : value;
+    }
+    private String t(String key, String fallback) { return text(menuText, key, fallback); }
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.fill(0, 0, width, height, 0xB9000000);
-        panelW = Math.max(280, Math.min(760, width - 24));
-        panelH = Math.max(250, Math.min(440, height - 20));
+        panelW = Math.max(1, Math.min(760, width - 16));
+        panelH = Math.max(1, Math.min(440, height - 16));
         panelX = (width - panelW) / 2;
         panelY = (height - panelH) / 2;
-        g.fill(panelX - 3, panelY - 3, panelX + panelW + 3, panelY + panelH + 3, 0xFF111111);
+        compactLayout = width < 600 || height < 400;
+        g.fill(panelX - 2, panelY - 2, panelX + panelW + 2, panelY + panelH + 2, 0xFF111111);
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF373737);
-        g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
-        g.fill(panelX + 8, panelY + 8, panelX + panelW - 8, panelY + 34, 0xFF4C3825);
-        drawCentered(g, "ВЫБОР ТЕРРИТОРИИ", width / 2, panelY + 16, 0xFFFFD46A);
-        drawCentered(g, "Выберите территорию или свободное выживание", width / 2, panelY + 43, 0xFFE0E0E0);
+        if (panelW > 8 && panelH > 8) g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
+        g.fill(panelX + 6, panelY + 6, panelX + panelW - 6, panelY + (compactLayout ? 28 : 34), 0xFF4C3825);
+        drawCentered(g, t("headerTitle", "ВЫБОР ТЕРРИТОРИИ"), width / 2, panelY + (compactLayout ? 9 : 16), 0xFFFFD46A);
+        if (!compactLayout) drawCentered(g, t("headerSubtitle", "Выберите территорию или свободное выживание"), width / 2, panelY + 43, 0xFFE0E0E0);
 
-        int leftX = panelX + 14;
-        int leftW = Math.min(246, panelW / 2 - 22);
-        int cardY = panelY + 66;
-        int cardH = Math.min(61, Math.max(46, (panelH - 168) / 3));
+        int leftX = panelX + (compactLayout ? 10 : 14);
+        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(246, panelW / 2 - 22));
+        int cardY = panelY + (compactLayout ? 38 : 66);
+        int cardH = compactLayout
+                ? Math.max(22, Math.min(50, (panelH - 88) / 4 - 4))
+                : Math.max(38, Math.min(61, (panelH - 168) / 3));
+        int gap = compactLayout ? 4 : 7;
         hovered = -1;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
-            int y = cardY + i * (cardH + 7);
+            int y = cardY + i * (cardH + gap);
             boolean over = inside(mouseX, mouseY, leftX, y, leftW, cardH);
             if (over) hovered = i;
-            g.fill(leftX - 2, y - 2, leftX + leftW + 2, y + cardH + 2, over ? 0xFFFFD46A : 0xFF777777);
+            g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? 0xFFFFD46A : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, over ? 0xFF51452E : 0xFF303030);
-            g.fill(leftX + 5, y + 5, leftX + 11, y + cardH - 5, teamColor(teams.get(i).color()));
-            g.text(font, clip(teams.get(i).name(), leftW - 30), leftX + 18, y + 8, 0xFFFFFFFF, true);
-            g.text(font, teams.get(i).countText(), leftX + 18, y + 24, 0xFFBEBEBE, true);
-            g.text(font, "Выбрать", leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
+            if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
+            g.text(font, clip(teams.get(i).name(), leftW - 28), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
+            if (!compactLayout || cardH >= 38) g.text(font, teams.get(i).countText(), leftX + 13, y + 22, 0xFFBEBEBE, true);
+            if (!compactLayout) g.text(font, clip(t("chooseButton", "Выбрать"), leftW - 30), leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
         }
 
-        int freeY = cardY + 3 * (cardH + 7) + 2;
-        boolean freeOver = inside(mouseX, mouseY, leftX, freeY, leftW, 40);
+        int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
+        int freeH = compactLayout ? cardH : 40;
+        boolean freeOver = inside(mouseX, mouseY, leftX, freeY, leftW, freeH);
         freeHovered = freeOver;
-        g.fill(leftX - 2, freeY - 2, leftX + leftW + 2, freeY + 42, freeOver ? 0xFFFFD46A : 0xFF777777);
-        g.fill(leftX, freeY, leftX + leftW, freeY + 40, freeOver ? 0xFF315043 : 0xFF303030);
-        drawCentered(g, "Свободное выживание", leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
-        drawCentered(g, "Случайный выбор спавна", leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
-
-        int previewX = leftX + leftW + 16;
-        int previewW = Math.max(80, panelX + panelW - 14 - previewX);
-        int previewY = panelY + 66;
-        int previewH = Math.min(220, Math.max(100, panelH - 170));
-        g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
-        drawPlaceholderLandscape(g, previewX, previewY, previewW, previewH, freeHovered ? 3 : hovered);
-        if (freeHovered) {
-            drawPreviewImage(g, "free_survival.png", previewX, previewY, previewW, previewH);
-            int textY = previewY + previewH + 10;
-            g.text(font, "Свободное выживание", previewX, textY, 0xFFFFD46A, true);
-            drawWrapped(g, "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите.", previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
-        } else if (hovered >= 0 && hovered < teams.size()) {
-            SpawnTeamView team = teams.get(hovered);
-            drawPreviewImage(g, team.image(), previewX, previewY, previewW, previewH);
-            int textY = previewY + previewH + 10;
-            g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
-            drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
-            g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
+        g.fill(leftX - 1, freeY - 1, leftX + leftW + 1, freeY + freeH + 1, freeOver ? 0xFFFFD46A : 0xFF777777);
+        g.fill(leftX, freeY, leftX + leftW, freeY + freeH, freeOver ? 0xFF315043 : 0xFF303030);
+        if (compactLayout) {
+            drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - 12), leftX + leftW / 2, freeY + Math.max(5, (freeH - 9) / 2), 0xFFFFFFFF);
         } else {
-            drawCentered(g, "Выберите вариант", previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
-            drawCentered(g, "чтобы увидеть описание", previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
+            drawCentered(g, t("freeName", "Свободное выживание"), leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
+            drawCentered(g, t("freeSubtitle", "Случайный выбор спавна"), leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
+        }
+
+        if (!compactLayout) {
+            int previewX = leftX + leftW + 16;
+            int previewW = Math.max(1, panelX + panelW - 14 - previewX);
+            int previewY = panelY + 66;
+            int previewH = Math.max(60, Math.min(220, panelH - 170));
+            g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
+            drawPlaceholderLandscape(g, previewX, previewY, previewW, previewH, freeHovered ? 3 : hovered);
+            if (freeHovered) {
+                drawPreviewImage(g, "free_survival.png", previewX, previewY, previewW, previewH);
+                int textY = previewY + previewH + 10;
+                g.text(font, clip(t("freeName", "Свободное выживание"), previewW), previewX, textY, 0xFFFFD46A, true);
+                drawWrapped(g, t("freeDescription", "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите."), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
+            } else if (hovered >= 0 && hovered < teams.size()) {
+                SpawnTeamView team = teams.get(hovered);
+                drawPreviewImage(g, team.image(), previewX, previewY, previewW, previewH);
+                int textY = previewY + previewH + 10;
+                g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
+                drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
+                g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
+            } else {
+                drawCentered(g, t("emptyPreviewTitle", "Выберите вариант"), previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
+                drawCentered(g, t("emptyPreviewSubtitle", "чтобы увидеть описание"), previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
+            }
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
-        else if (sending) drawCentered(g, "Загрузка…", width / 2, panelY + panelH - 15, 0xFFFFD46A);
+        else if (sending) drawCentered(g, t("loading", "Загрузка…"), width / 2, panelY + panelH - 15, 0xFFFFD46A);
         if (confirmingChoice >= 0) drawConfirmation(g);
     }
 
     private void drawConfirmation(GuiGraphicsExtractor g) {
-        int w = Math.min(480, width - 24);
-        int h = 190;
+        int w = Math.max(1, Math.min(480, width - 16));
+        int h = Math.max(140, Math.min(190, height - 16));
         int x = (width - w) / 2;
         int y = (height - h) / 2;
         g.fill(0, 0, width, height, 0xD9000000);
-        g.fill(x - 3, y - 3, x + w + 3, y + h + 3, 0xFF111111);
+        g.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xFF111111);
         g.fill(x, y, x + w, y + h, 0xFF373737);
         g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFF242424);
-        String name = confirmingChoice == 3 ? "Свободное выживание" : teams.get(confirmingChoice).name();
+        String name = confirmingChoice == 3 ? t("freeName", "Свободное выживание") : teams.get(confirmingChoice).name();
         String description = confirmingChoice == 3
-                ? "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно."
+                ? t("confirmFreeDescription", "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно.")
                 : teams.get(confirmingChoice).description();
-        drawCentered(g, "ПОДТВЕРЖДЕНИЕ ВЫБОРА", width / 2, y + 18, 0xFFFFD46A);
-        drawCentered(g, clip(name, w - 28), width / 2, y + 42, 0xFFFFFFFF);
-        drawWrapped(g, description, x + 18, y + 62, w - 36, 0xFFE0E0E0, y + 112);
-        int buttonY = y + h - 48;
-        g.fill(x + 24, buttonY, x + w / 2 - 8, buttonY + 28, 0xFF426D45);
-        g.fill(x + w / 2 + 8, buttonY, x + w - 24, buttonY + 28, 0xFF6B4141);
-        drawCentered(g, "Подтвердить", x + (w / 2 - 8 + 24) / 2, buttonY + 9, 0xFFFFFFFF);
-        drawCentered(g, "Назад", x + w - 24 - (w / 2 - 16) / 2, buttonY + 9, 0xFFFFFFFF);
+        drawCentered(g, t("confirmTitle", "ПОДТВЕРЖДЕНИЕ ВЫБОРА"), width / 2, y + 14, 0xFFFFD46A);
+        drawCentered(g, clip(name, w - 24), width / 2, y + 35, 0xFFFFFFFF);
+        drawWrapped(g, description, x + 12, y + 54, w - 24, 0xFFE0E0E0, y + h - 48);
+        int buttonY = y + h - 36;
+        int buttonW = Math.max(1, (w - 36) / 2);
+        g.fill(x + 12, buttonY, x + 12 + buttonW, buttonY + 24, 0xFF426D45);
+        g.fill(x + w - 12 - buttonW, buttonY, x + w - 12, buttonY + 24, 0xFF6B4141);
+        drawCentered(g, clip(t("confirmButton", "Подтвердить"), buttonW - 8), x + 12 + buttonW / 2, buttonY + 8, 0xFFFFFFFF);
+        drawCentered(g, clip(t("backButton", "Назад"), buttonW - 8), x + w - 12 - buttonW / 2, buttonY + 8, 0xFFFFFFFF);
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
@@ -191,31 +213,34 @@ public class SpawnSelectorScreen extends Screen {
         double mouseY = event.y();
         if (event.button() != 0 || sending) return false;
         if (confirmingChoice >= 0) {
-            int w = Math.min(480, width - 24);
-            int h = 190;
+            int w = Math.max(1, Math.min(480, width - 16));
+            int h = Math.max(140, Math.min(190, height - 16));
             int x = (width - w) / 2;
             int y = (height - h) / 2;
-            int buttonY = y + h - 48;
-            if (inside(mouseX, mouseY, x + 24, buttonY, w / 2 - 32, 28)) {
+            int buttonY = y + h - 36;
+            int buttonW = Math.max(1, (w - 36) / 2);
+            if (inside(mouseX, mouseY, x + 12, buttonY, buttonW, 24)) {
                 int choice = confirmingChoice;
                 confirmingChoice = -1;
                 sendChoice(choice);
-            } else if (inside(mouseX, mouseY, x + w / 2 + 8, buttonY, w / 2 - 32, 28)) {
+            } else if (inside(mouseX, mouseY, x + w - 12 - buttonW, buttonY, buttonW, 24)) {
                 confirmingChoice = -1;
                 message = "";
             }
             return true;
         }
-        int leftX = panelX + 14;
-        int leftW = Math.min(246, panelW / 2 - 22);
-        int cardY = panelY + 66;
-        int cardH = Math.min(61, Math.max(46, (panelH - 168) / 3));
+        int leftX = panelX + (compactLayout ? 10 : 14);
+        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(246, panelW / 2 - 22));
+        int cardY = panelY + (compactLayout ? 38 : 66);
+        int cardH = compactLayout ? Math.max(22, Math.min(50, (panelH - 88) / 4 - 4)) : Math.max(38, Math.min(61, (panelH - 168) / 3));
+        int gap = compactLayout ? 4 : 7;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
-            int y = cardY + i * (cardH + 7);
+            int y = cardY + i * (cardH + gap);
             if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) { confirmingChoice = i; message = ""; return true; }
         }
-        int freeY = cardY + 3 * (cardH + 7) + 2;
-        if (inside(mouseX, mouseY, leftX, freeY, leftW, 40)) { confirmingChoice = 3; message = ""; return true; }
+        int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
+        int freeH = compactLayout ? cardH : 40;
+        if (inside(mouseX, mouseY, leftX, freeY, leftW, freeH)) { confirmingChoice = 3; message = ""; return true; }
         return super.mouseClicked(event, doubleClick);
     }
     private void sendChoice(int index) {
