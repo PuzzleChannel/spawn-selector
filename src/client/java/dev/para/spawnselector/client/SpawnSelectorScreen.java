@@ -240,7 +240,7 @@ public class SpawnSelectorScreen extends Screen {
                 int drawX = x + (w - drawW) / 2;
                 int drawY = y + (h - drawH) / 2;
                 g.fill(x, y, x + w, y + h, 0xFF000000);
-                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, drawW, drawH, 0, 0, sourceW, sourceH, sourceW, sourceH);
+                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0, drawW, drawH, sourceW, sourceH, sourceW, sourceH);
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background black if an optional image is missing.
