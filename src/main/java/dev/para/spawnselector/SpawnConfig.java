@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.lang.reflect.Field;
 
 public class SpawnConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -43,7 +44,8 @@ public class SpawnConfig {
             validate(data);
             spawnPoints = new ArrayList<>(data.spawnPoints);
             boolean menuTextAdded = !root.has("menuText") || root.get("menuText").isJsonNull();
-            menuText = menuTextAdded ? new MenuText() : data.menuText;
+            menuText = menuTextAdded || data.menuText == null ? new MenuText() : data.menuText;
+            boolean menuTextNormalized = normalizeMenuText(menuText, new MenuText());
             // Update only the previous built-in descriptions; preserve any server-owner edits.
             boolean descriptionsUpdated = false;
             boolean teamIdsUpdated = false;
@@ -69,7 +71,7 @@ public class SpawnConfig {
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
-            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded) save();
+            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded || menuTextNormalized) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
@@ -83,6 +85,28 @@ public class SpawnConfig {
         }
     }
 
+    /**
+     * Gson can set explicitly-null JSON values to null, which would otherwise make
+     * the client fall back to its own hard-coded strings. Keep the server config
+     * authoritative by filling every missing/null text entry from server defaults.
+     */
+    private static boolean normalizeMenuText(MenuText target, MenuText defaults) {
+        boolean changed = false;
+        try {
+            for (Field field : MenuText.class.getDeclaredFields()) {
+                if (field.getType() != String.class) continue;
+                field.setAccessible(true);
+                if (field.get(target) == null) {
+                    field.set(target, field.get(defaults));
+                    changed = true;
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Не удалось восстановить текст конфигурации меню.", e);
+        }
+        return changed;
+    }
+
     private static void validate(ConfigData data) {
         if (data == null || data.spawnPoints == null || data.spawnPoints.size() != 3)
             throw new IllegalArgumentException("В конфигурации должны быть ровно три команды.");
@@ -92,6 +116,21 @@ public class SpawnConfig {
             throw new IllegalArgumentException("maxPlayersPerTeam должен быть от 0 до 100000.");
         if (data.maxTeamImbalance < 0 || data.maxTeamImbalance > 100000)
             throw new IllegalArgumentException("maxTeamImbalance должен быть от 0 до 100000.");
+
+        if (data.menuText != null) {
+            for (Field field : MenuText.class.getDeclaredFields()) {
+                if (field.getType() != String.class) continue;
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(data.menuText);
+                    if (value instanceof String s && s.length() > 2000) {
+                        throw new IllegalArgumentException("Поле menuText." + field.getName() + " превышает 2000 символов.");
+                    }
+                } catch (IllegalAccessException e) {
+                    throw new IllegalStateException("Не удалось проверить текст конфигурации меню.", e);
+                }
+            }
+        }
 
         Set<String> teams = new HashSet<>();
         for (SpawnPoint point : data.spawnPoints) {
