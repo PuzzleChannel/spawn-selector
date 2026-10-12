@@ -41,12 +41,12 @@ public class SpawnSelectorClient implements ClientModInitializer {
                 String message = root.has("message") ? root.get("message").getAsString() : "";
                 context.client().execute(() -> {
                     activeScreen = new SpawnSelectorScreen(teams, message, menuText);
-                    context.client().setScreen(activeScreen);
+                    context.client().gui.setScreen(activeScreen);
                 });
             } catch (Exception e) {
                 context.client().execute(() -> {
                     activeScreen = new SpawnSelectorScreen(List.of(), "Не удалось загрузить список территорий.", Map.of());
-                    context.client().setScreen(activeScreen);
+                    context.client().gui.setScreen(activeScreen);
                 });
             }
         });
@@ -62,7 +62,7 @@ public class SpawnSelectorClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE,
                 (payload, context) -> context.client().execute(() -> {
                     activeScreen = null;
-                    context.client().setScreen(null);
+                    context.client().gui.setScreen(null);
                 }));
     }
 
