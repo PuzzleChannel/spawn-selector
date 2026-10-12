@@ -215,7 +215,7 @@ public class SpawnSelectorScreen extends Screen {
     }
 
     private void drawPreviewImage(GuiGraphicsExtractor g, String image, int x, int y, int w, int h) {
-        if (image == null || image.isBlank()) return;
+        if (image == null || image.isBlank() || w <= 0 || h <= 0) return;
         String path = image.startsWith("textures/") ? image : "textures/gui/spawn_selector/" + image;
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
         try {
@@ -234,16 +234,28 @@ public class SpawnSelectorScreen extends Screen {
                 });
                 int sourceW = Math.max(1, sourceSize[0]);
                 int sourceH = Math.max(1, sourceSize[1]);
-                double scale = Math.min(w / (double) sourceW, h / (double) sourceH);
-                int drawW = Math.max(1, (int) Math.round(sourceW * scale));
-                int drawH = Math.max(1, (int) Math.round(sourceH * scale));
-                int drawX = x + (w - drawW) / 2;
-                int drawY = y + (h - drawH) / 2;
-                g.fill(x, y, x + w, y + h, 0xFF000000);
-                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0, drawW, drawH, sourceW, sourceH, sourceW, sourceH);
+
+                // Fill the entire preview rectangle ("cover" scaling). Crop only the
+                // excess from the center instead of leaving black bars at the sides.
+                double targetAspect = w / (double) h;
+                double sourceAspect = sourceW / (double) sourceH;
+                int u = 0;
+                int v = 0;
+                int cropW = sourceW;
+                int cropH = sourceH;
+                if (sourceAspect > targetAspect) {
+                    cropW = Math.max(1, Math.min(sourceW, (int) Math.round(sourceH * targetAspect)));
+                    u = (sourceW - cropW) / 2;
+                } else if (sourceAspect < targetAspect) {
+                    cropH = Math.max(1, Math.min(sourceH, (int) Math.round(sourceW / targetAspect)));
+                    v = (sourceH - cropH) / 2;
+                }
+
+                g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, cropW, cropH,
+                        sourceW, sourceH, w, h);
             }
         } catch (RuntimeException ignored) {
-            // Keep the preview background black if an optional image is missing.
+            // Keep the preview background if an optional image is missing.
         }
     }
 
