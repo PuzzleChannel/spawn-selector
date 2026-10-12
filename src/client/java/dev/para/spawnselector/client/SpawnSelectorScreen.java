@@ -11,17 +11,20 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.List;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
 public class SpawnSelectorScreen extends Screen {
-    private final List<SpawnTeamView> teams;
+    private List<SpawnTeamView> teams;
     private final Map<String, String> menuText;
     private boolean compactLayout;
     private String message;
     private int hovered = -1;
     private boolean freeHovered;
+    private int stickyPreviewChoice = -1;
     private boolean sending;
     private int confirmingChoice = -1;
     private int panelX, panelY, panelW, panelH;
@@ -49,10 +52,10 @@ public class SpawnSelectorScreen extends Screen {
         panelY = (height - panelH) / 2;
         compactLayout = width < 600 || height < 400;
         g.fill(panelX - 2, panelY - 2, panelX + panelW + 2, panelY + panelH + 2, 0xFF111111);
-        g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF373737);
+        g.fill(panelX, panelY, panelX + panelW, panelY + panelH, color("stylePanel", 0xFF373737));
         if (panelW > 8 && panelH > 8) g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
         g.fill(panelX + 6, panelY + 6, panelX + panelW - 6, panelY + (compactLayout ? 28 : 34), 0xFF4C3825);
-        drawCentered(g, t("headerTitle", "ВЫБОР ТЕРРИТОРИИ"), width / 2, panelY + (compactLayout ? 9 : 16), 0xFFFFD46A);
+        drawCentered(g, t("headerTitle", "ВЫБОР ТЕРРИТОРИИ"), width / 2, panelY + (compactLayout ? 9 : 16), color("styleAccent", 0xFFFFD46A));
         if (!compactLayout) drawCentered(g, t("headerSubtitle", "Выберите территорию или свободное выживание"), width / 2, panelY + 43, 0xFFE0E0E0);
 
         int leftX = panelX + (compactLayout ? 10 : 14);
@@ -65,14 +68,14 @@ public class SpawnSelectorScreen extends Screen {
         hovered = -1;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
-            boolean over = confirmingChoice < 0 && inside(mouseX, mouseY, leftX, y, leftW, cardH);
+            boolean over = confirmingChoice < 0 && teams.get(i).available() && inside(mouseX, mouseY, leftX, y, leftW, cardH);
             if (over) hovered = i;
             g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? 0xFFFFD46A : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, over ? 0xFF51452E : 0xFF303030);
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
             g.text(font, clip(teams.get(i).name(), leftW - 28), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
             if (!compactLayout || cardH >= 38) g.text(font, teams.get(i).countText(), leftX + 13, y + 22, 0xFFBEBEBE, true);
-            if (!compactLayout) g.text(font, clip(t("chooseButton", "Выбрать"), leftW - 30), leftX + 18, y + cardH - 15, 0xFFFFD46A, true);
+            if (!compactLayout) g.text(font, clip(unavailable ? t("unavailable", "Недоступно") : t("chooseButton", "Выбрать"), leftW - 30), leftX + 18, y + cardH - 15, unavailable ? 0xFFFF8888 : color("styleAccent", 0xFFFFD46A), true);
         }
 
         int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
@@ -121,7 +124,7 @@ public class SpawnSelectorScreen extends Screen {
         int y = (height - h) / 2;
         g.fill(0, 0, width, height, 0xD9000000);
         g.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xFF111111);
-        g.fill(x, y, x + w, y + h, 0xFF373737);
+        g.fill(x, y, x + w, y + h, color("stylePanel", 0xFF373737));
         g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFF242424);
         String name = confirmingChoice == 3 ? t("freeName", "Свободное выживание") : teams.get(confirmingChoice).name();
         String description = confirmingChoice == 3
@@ -132,8 +135,8 @@ public class SpawnSelectorScreen extends Screen {
         drawWrapped(g, description, x + 12, y + 54, w - 24, 0xFFE0E0E0, y + h - 48);
         int buttonY = y + h - 36;
         int buttonW = Math.max(1, (w - 36) / 2);
-        g.fill(x + 12, buttonY, x + 12 + buttonW, buttonY + 24, 0xFF426D45);
-        g.fill(x + w - 12 - buttonW, buttonY, x + w - 12, buttonY + 24, 0xFF6B4141);
+        g.fill(x + 12, buttonY, x + 12 + buttonW, buttonY + 24, color("styleConfirmButton", 0xFF426D45));
+        g.fill(x + w - 12 - buttonW, buttonY, x + w - 12, buttonY + 24, color("styleBackButton", 0xFF6B4141));
         drawCentered(g, clip(t("confirmButton", "Подтвердить"), buttonW - 8), x + 12 + buttonW / 2, buttonY + 8, 0xFFFFFFFF);
         drawCentered(g, clip(t("backButton", "Назад"), buttonW - 8), x + w - 12 - buttonW / 2, buttonY + 8, 0xFFFFFFFF);
     }
@@ -251,13 +254,45 @@ public class SpawnSelectorScreen extends Screen {
         int gap = compactLayout ? 4 : 7;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
-            if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) { confirmingChoice = i; message = ""; return true; }
+            if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) {
+                if (!teams.get(i).available()) { message = t("unavailableMessage", "Эта территория сейчас недоступна. Выберите другую."); return true; }
+                confirmingChoice = i; stickyPreviewChoice = i; message = ""; return true;
+            }
         }
         int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
         int freeH = compactLayout ? cardH : 40;
         if (inside(mouseX, mouseY, leftX, freeY, leftW, freeH)) { confirmingChoice = 3; message = ""; return true; }
         return super.mouseClicked(event, doubleClick);
     }
+    public void updateTeams(JsonArray updates) {
+        if (updates == null || teams == null) return;
+        java.util.ArrayList<SpawnTeamView> refreshed = new java.util.ArrayList<>(teams);
+        for (int i = 0; i < Math.min(refreshed.size(), updates.size()); i++) {
+            if (!updates.get(i).isJsonObject()) continue;
+            JsonObject update = updates.get(i).getAsJsonObject();
+            SpawnTeamView old = refreshed.get(i);
+            int count = update.has("count") ? update.get("count").getAsInt() : old.count();
+            int max = update.has("max") ? update.get("max").getAsInt() : old.max();
+            boolean available = !update.has("available") || update.get("available").getAsBoolean();
+            String template = t(max > 0 ? "playersLimited" : "players", max > 0 ? "{count}/{max} игроков" : "{count} игроков");
+            String countText = template.replace("{count}", Integer.toString(count)).replace("{max}", Integer.toString(max));
+            refreshed.set(i, new SpawnTeamView(old.name(), old.description(), old.image(), count, max, old.color(), countText, available));
+        }
+        teams = refreshed;
+        if (stickyPreviewChoice >= 0 && stickyPreviewChoice < teams.size() && !teams.get(stickyPreviewChoice).available()) stickyPreviewChoice = -1;
+    }
+
+    private int color(String key, int fallback) {
+        String raw = t(key, "");
+        if (raw == null || raw.isBlank()) return fallback;
+        try {
+            String hex = raw.startsWith("#") ? raw.substring(1) : raw;
+            long parsed = Long.parseLong(hex, 16);
+            if (hex.length() == 6) parsed |= 0xFF000000L;
+            return (int) parsed;
+        } catch (NumberFormatException ignored) { return fallback; }
+    }
+
     private void sendChoice(int index) {
         sending = true; message = "";
         ClientPlayNetworking.send(new SpawnPayloads.Choose(index));
