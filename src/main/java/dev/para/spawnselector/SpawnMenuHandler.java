@@ -27,6 +27,7 @@ public final class SpawnMenuHandler {
     private static final int FREE_SPAWN_CENTER_X = 0;
     private static final int FREE_SPAWN_CENTER_Z = 0;
     private static final int FREE_SPAWN_SPREAD = 4_000;
+    private static long lastMenuRefreshTick = -40;
 
     private SpawnMenuHandler() {}
 
@@ -45,6 +46,46 @@ public final class SpawnMenuHandler {
         sendMenu(player, "");
     }
 
+    public static void tickOpenMenus(MinecraftServer server) {
+        long tick = server.getTickCount();
+        if (tick - lastMenuRefreshTick < 40) return;
+        lastMenuRefreshTick = tick;
+        for (UUID id : Set.copyOf(OPEN_MENUS)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) {
+                OPEN_MENUS.remove(id);
+                continue;
+            }
+            sendTeamsUpdate(player);
+        }
+    }
+
+    private static void sendTeamsUpdate(ServerPlayer player) {
+        MinecraftServer server = ((ServerLevel) player.level()).getServer();
+        Scoreboard scoreboard = server.getScoreboard();
+        int smallestCount = Integer.MAX_VALUE;
+        for (SpawnConfig.SpawnPoint point : SpawnConfig.spawnPoints) {
+            PlayerTeam team = scoreboard.getPlayerTeam(point.team);
+            smallestCount = Math.min(smallestCount, team == null ? 0 : team.getPlayers().size());
+        }
+        if (smallestCount == Integer.MAX_VALUE) smallestCount = 0;
+        JsonArray teams = new JsonArray();
+        for (int i = 0; i < Math.min(3, SpawnConfig.spawnPoints.size()); i++) {
+            SpawnConfig.SpawnPoint point = SpawnConfig.spawnPoints.get(i);
+            PlayerTeam team = scoreboard.getPlayerTeam(point.team);
+            int count = team == null ? 0 : team.getPlayers().size();
+            boolean available = team != null
+                    && (SpawnConfig.maxPlayersPerTeam <= 0 || count < SpawnConfig.maxPlayersPerTeam)
+                    && count + 1 - smallestCount <= SpawnConfig.maxTeamImbalance;
+            JsonObject item = new JsonObject();
+            item.addProperty("count", count);
+            item.addProperty("max", SpawnConfig.maxPlayersPerTeam);
+            item.addProperty("available", available);
+            teams.add(item);
+        }
+        ServerPlayNetworking.send(player, new SpawnPayloads.TeamsUpdate(GSON.toJson(teams)));
+    }
+
     private static void sendMenu(ServerPlayer player, String message) {
         JsonObject root = new JsonObject();
         JsonArray teams = new JsonArray();
@@ -60,6 +101,8 @@ public final class SpawnMenuHandler {
             team.addProperty("count", scoreboardTeam == null ? 0 : scoreboardTeam.getPlayers().size());
             team.addProperty("max", SpawnConfig.maxPlayersPerTeam);
             team.addProperty("color", point.color == null ? "" : point.color);
+            team.addProperty("available", scoreboardTeam != null
+                    && (SpawnConfig.maxPlayersPerTeam <= 0 || scoreboardTeam.getPlayers().size() < SpawnConfig.maxPlayersPerTeam));
             teams.add(team);
         }
         root.add("teams", teams);
