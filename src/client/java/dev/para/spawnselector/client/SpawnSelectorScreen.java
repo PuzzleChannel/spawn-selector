@@ -85,17 +85,7 @@ public class SpawnSelectorScreen extends Screen {
             g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, frameColor);
             g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : selected ? 0xFF403824 : color("styleCard", 0xFF303030));
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
-            int textW = leftW - 28;
-            if (cardH >= 38) {
-                int thumbH = Math.max(1, cardH - 8);
-                int thumbW = Math.min(Math.min(92, Math.max(1, leftW / 3)),
-                        Math.max(1, (int) Math.round(thumbH * (940.0 / 529.0))));
-                thumbH = Math.max(1, Math.min(thumbH, (int) Math.round(thumbW * (529.0 / 940.0))));
-                int thumbX = leftX + leftW - thumbW - 4;
-                drawPreviewImage(g, teams.get(i).image(), thumbX, y + 4, thumbW, thumbH);
-                if (unavailable) g.fill(thumbX, y + 4, thumbX + thumbW, y + 4 + thumbH, 0x99000000);
-                textW = Math.max(1, thumbX - (leftX + 13) - 5);
-            }
+            int textW = leftW - 24;
             g.text(font, clip(teams.get(i).name(), textW), leftX + 13, y + (compactLayout ? 5 : 8), 0xFFFFFFFF, true);
             if (!compactLayout || cardH >= 38) g.text(font, clip(teams.get(i).countText(), textW), leftX + 13, y + 22, 0xFFBEBEBE, true);
             if (!compactLayout) g.text(font, clip(unavailable ? t("unavailable", "Недоступно") : t("chooseButton", "Выбрать"), textW), leftX + 18, y + cardH - 15, unavailable ? 0xFFFF8888 : color("styleAccent", 0xFFFFD46A), true);
@@ -111,15 +101,8 @@ public class SpawnSelectorScreen extends Screen {
         if (compactLayout) {
             drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - 12), leftX + leftW / 2, freeY + Math.max(5, (freeH - 9) / 2), 0xFFFFFFFF);
         } else {
-            int freeThumbH = Math.max(1, freeH - 8);
-            int freeThumbW = Math.min(Math.min(68, Math.max(1, leftW / 3)),
-                    Math.max(1, (int) Math.round(freeThumbH * (940.0 / 529.0))));
-            freeThumbH = Math.max(1, Math.min(freeThumbH, (int) Math.round(freeThumbW * (529.0 / 940.0))));
-            int freeThumbX = leftX + leftW - freeThumbW - 4;
-            drawPreviewImage(g, "free_survival.png", freeThumbX, freeY + 4, freeThumbW, freeThumbH);
-            int freeTextCenter = leftX + (leftW - freeThumbW - 8) / 2;
-            drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - freeThumbW - 18), freeTextCenter, freeY + 7, 0xFFFFFFFF);
-            drawCentered(g, clip(t("freeSubtitle", "Случайный выбор спавна"), leftW - freeThumbW - 18), freeTextCenter, freeY + 22, 0xFFBFE9CB);
+            drawCentered(g, clip(t("freeName", "Свободное выживание"), leftW - 12), leftX + leftW / 2, freeY + 7, 0xFFFFFFFF);
+            drawCentered(g, clip(t("freeSubtitle", "Случайный выбор спавна"), leftW - 12), leftX + leftW / 2, freeY + 22, 0xFFBFE9CB);
         }
 
         if (!compactLayout) {
