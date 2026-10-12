@@ -155,7 +155,7 @@ public final class SpawnMenuHandler {
         }
         if (!teleportAndSetRespawn(player, level, destination, spawn.yaw)) {
             scoreboard.removePlayerFromTeam(player.getScoreboardName(), targetTeam);
-            reject(player, "Не удалось установить точку появления. Попробуйте ещё раз.");
+            reject(player, SpawnConfig.menuText.errorSpawnpoint);
             return;
         }
 
