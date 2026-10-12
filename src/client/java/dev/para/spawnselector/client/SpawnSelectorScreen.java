@@ -62,7 +62,7 @@ public class SpawnSelectorScreen extends Screen {
         hovered = -1;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
-            boolean over = inside(mouseX, mouseY, leftX, y, leftW, cardH);
+            boolean over = confirmingChoice < 0 && inside(mouseX, mouseY, leftX, y, leftW, cardH);
             if (over) hovered = i;
             g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? 0xFFFFD46A : 0xFF777777);
             g.fill(leftX, y, leftX + leftW, y + cardH, over ? 0xFF51452E : 0xFF303030);
@@ -74,7 +74,7 @@ public class SpawnSelectorScreen extends Screen {
 
         int freeY = cardY + 3 * (cardH + gap) + (compactLayout ? 0 : 2);
         int freeH = compactLayout ? cardH : 40;
-        boolean freeOver = inside(mouseX, mouseY, leftX, freeY, leftW, freeH);
+        boolean freeOver = confirmingChoice < 0 && inside(mouseX, mouseY, leftX, freeY, leftW, freeH);
         freeHovered = freeOver;
         g.fill(leftX - 1, freeY - 1, leftX + leftW + 1, freeY + freeH + 1, freeOver ? 0xFFFFD46A : 0xFF777777);
         g.fill(leftX, freeY, leftX + leftW, freeY + freeH, freeOver ? 0xFF315043 : 0xFF303030);
@@ -91,7 +91,7 @@ public class SpawnSelectorScreen extends Screen {
             int previewY = panelY + 66;
             int previewH = Math.max(60, Math.min(220, panelH - 170));
             g.fill(previewX - 2, previewY - 2, previewX + previewW + 2, previewY + previewH + 2, 0xFF777777);
-            drawPlaceholderLandscape(g, previewX, previewY, previewW, previewH, freeHovered ? 3 : hovered);
+            g.fill(previewX, previewY, previewX + previewW, previewY + previewH, 0xFF000000);
             if (freeHovered) {
                 drawPreviewImage(g, "free_survival.png", previewX, previewY, previewW, previewH);
                 int textY = previewY + previewH + 10;
@@ -104,9 +104,6 @@ public class SpawnSelectorScreen extends Screen {
                 g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
                 drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
                 g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
-            } else {
-                drawCentered(g, t("emptyPreviewTitle", "Выберите вариант"), previewX + previewW / 2, previewY + previewH / 2, 0xFFFFFFFF);
-                drawCentered(g, t("emptyPreviewSubtitle", "чтобы увидеть описание"), previewX + previewW / 2, previewY + previewH / 2 + 12, 0xFFCCCCCC);
             }
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
@@ -144,15 +141,18 @@ public class SpawnSelectorScreen extends Screen {
         Identifier id = Identifier.fromNamespaceAndPath("spawnselector", path);
         try {
             if (net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(id).isPresent()) {
-                if ("free_survival.png".equals(image)) {
-                    // Use the same preview rectangle as territory images.
-                    g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 320, 180);
-                } else {
-                    g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, w, h, 640, 360);
-                }
+                // Every selector illustration uses a 320x180 (16:9) source rectangle.
+                // Keep the full image visible: preserve aspect ratio and letterbox instead of crop/stretch.
+                double scale = Math.min(w / 320.0, h / 180.0);
+                int drawW = Math.max(1, (int) Math.round(320 * scale));
+                int drawH = Math.max(1, (int) Math.round(180 * scale));
+                int drawX = x + (w - drawW) / 2;
+                int drawY = y + (h - drawH) / 2;
+                g.fill(x, y, x + w, y + h, 0xFF000000);
+                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0, 0, drawW, drawH, 320, 180);
             }
         } catch (RuntimeException ignored) {
-            // The built-in pixel-art placeholder remains visible when an optional image is absent.
+            // Keep the preview background black if an optional image is missing.
         }
     }
 
