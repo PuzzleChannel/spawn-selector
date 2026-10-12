@@ -51,11 +51,11 @@ public class SpawnSelectorScreen extends Screen {
         super.extractRenderState(g, mouseX, mouseY, partialTick);
         g.fill(0, 0, width, height, 0xB9000000);
         String hoverTarget = "";
-        panelW = Math.max(1, Math.min(760, width - 16));
-        panelH = Math.max(1, Math.min(440, height - 16));
+        panelW = Math.max(1, Math.min(720, width - 20));
+        panelH = Math.max(1, Math.min(420, height - 20));
         panelX = (width - panelW) / 2;
         panelY = (height - panelH) / 2;
-        compactLayout = width < 600 || height < 400;
+        compactLayout = width < 680 || height < 390;
         g.fill(panelX - 2, panelY - 2, panelX + panelW + 2, panelY + panelH + 2, 0xFF111111);
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, color("stylePanel", 0xFF373737));
         if (panelW > 8 && panelH > 8) g.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + panelH - 4, 0xFF242424);
@@ -64,24 +64,26 @@ public class SpawnSelectorScreen extends Screen {
         if (!compactLayout) drawCentered(g, t("headerSubtitle", "Выберите территорию или свободное выживание"), width / 2, panelY + 43, 0xFFE0E0E0);
 
         int leftX = panelX + (compactLayout ? 10 : 14);
-        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(246, panelW / 2 - 22));
+        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(232, panelW / 2 - 22));
         int cardY = panelY + (compactLayout ? 38 : 66);
         int cardH = compactLayout
-                ? Math.max(22, Math.min(50, (panelH - 88) / 4 - 4))
-                : Math.max(38, Math.min(61, (panelH - 168) / 3));
-        int gap = compactLayout ? 4 : 7;
+                ? Math.max(22, Math.min(48, (panelH - 88) / 4 - 4))
+                : Math.max(38, Math.min(56, (panelH - 160) / 3));
+        int gap = compactLayout ? 4 : 6;
         hovered = -1;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
             boolean unavailable = !teams.get(i).available();
             boolean over = confirmingChoice < 0 && !unavailable && inside(mouseX, mouseY, leftX, y, leftW, cardH);
+            boolean selected = stickyPreviewChoice == i && !unavailable;
             if (over) {
                 hovered = i;
                 stickyPreviewChoice = i;
                 hoverTarget = "territory_" + i;
             }
-            g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, over ? color("styleAccent", 0xFFFFD46A) : unavailable ? 0xFF663B3B : 0xFF777777);
-            g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : color("styleCard", 0xFF303030));
+            int frameColor = (over || selected) ? color("styleAccent", 0xFFFFD46A) : unavailable ? 0xFF663B3B : 0xFF777777;
+            g.fill(leftX - 1, y - 1, leftX + leftW + 1, y + cardH + 1, frameColor);
+            g.fill(leftX, y, leftX + leftW, y + cardH, unavailable ? 0xFF292323 : over ? 0xFF51452E : selected ? 0xFF403824 : color("styleCard", 0xFF303030));
             if (cardH >= 20) g.fill(leftX + 4, y + 4, leftX + 8, y + cardH - 4, teamColor(teams.get(i).color()));
             int textW = leftW - 28;
             if (cardH >= 38) {
@@ -124,6 +126,7 @@ public class SpawnSelectorScreen extends Screen {
             int previewX = leftX + leftW + 16;
             int availablePreviewW = Math.max(1, panelX + panelW - 14 - previewX);
             int previewY = panelY + 66;
+            g.text(font, t("previewLabel", "ПРЕДПРОСМОТР"), previewX, panelY + 54, 0xFFBEBEBE, true);
             // Fit the preview frame itself to the source image ratio. Previously
             // previewH was capped at 220 while previewW stayed wider, leaving
             // black gutters on both sides of the correctly rendered image.
@@ -146,6 +149,11 @@ public class SpawnSelectorScreen extends Screen {
                 g.text(font, clip(team.name(), previewW), previewX, textY, 0xFFFFD46A, true);
                 drawWrapped(g, team.description(), previewX, textY + 16, previewW, 0xFFE0E0E0, panelY + panelH - 12);
                 g.text(font, team.countText(), previewX, panelY + panelH - 27, 0xFFBEBEBE, true);
+            } else {
+                drawCentered(g, t("previewPrompt", "Наведите на вариант слева"), previewX + previewW / 2,
+                        previewY + Math.max(8, previewH / 2 - 4), 0xFFBEBEBE);
+                drawCentered(g, t("previewHint", "Нажмите на него, чтобы продолжить"), previewX + previewW / 2,
+                        previewY + Math.max(20, previewH / 2 + 10), 0xFF888888);
             }
         }
         if (!message.isBlank()) drawCentered(g, clip(message, panelW - 20), width / 2, panelY + panelH - 15, 0xFFFF7777);
@@ -318,10 +326,10 @@ public class SpawnSelectorScreen extends Screen {
             return true;
         }
         int leftX = panelX + (compactLayout ? 10 : 14);
-        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(246, panelW / 2 - 22));
+        int leftW = compactLayout ? Math.max(1, panelW - 20) : Math.max(100, Math.min(232, panelW / 2 - 22));
         int cardY = panelY + (compactLayout ? 38 : 66);
-        int cardH = compactLayout ? Math.max(22, Math.min(50, (panelH - 88) / 4 - 4)) : Math.max(38, Math.min(61, (panelH - 168) / 3));
-        int gap = compactLayout ? 4 : 7;
+        int cardH = compactLayout ? Math.max(22, Math.min(48, (panelH - 88) / 4 - 4)) : Math.max(38, Math.min(56, (panelH - 160) / 3));
+        int gap = compactLayout ? 4 : 6;
         for (int i = 0; i < Math.min(3, teams.size()); i++) {
             int y = cardY + i * (cardH + gap);
             if (inside(mouseX, mouseY, leftX, y, leftW, cardH)) {
