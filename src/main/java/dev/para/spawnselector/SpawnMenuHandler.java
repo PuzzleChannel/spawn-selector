@@ -15,7 +15,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.PlayerTeam;
-import net.minecraft.network.chat.Component;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -70,7 +69,6 @@ public final class SpawnMenuHandler {
     }
 
     private static void reject(ServerPlayer player, String message) {
-        player.sendSystemMessage(Component.literal(message));
         sendMenu(player, message);
     }
 
