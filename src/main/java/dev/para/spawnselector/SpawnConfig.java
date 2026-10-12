@@ -40,7 +40,15 @@ public class SpawnConfig {
             spawnPoints = new ArrayList<>(data.spawnPoints);
             // Update only the previous built-in descriptions; preserve any server-owner edits.
             boolean descriptionsUpdated = false;
-            for (SpawnPoint point : spawnPoints) {
+            boolean teamIdsUpdated = false;
+            String[] oldTeamIds = {"team1", "team2", "team3"};
+            String[] newTeamIds = {"europe", "africa", "avstralia"};
+            for (int i = 0; i < spawnPoints.size(); i++) {
+                SpawnPoint point = spawnPoints.get(i);
+                if (oldTeamIds[i].equals(point.team)) {
+                    point.team = newTeamIds[i];
+                    teamIdsUpdated = true;
+                }
                 if ("Зелёная долина у леса. Подходит для спокойного старта и сбора ресурсов.".equals(point.description)) {
                     point.description = "Лес рядом, вокруг есть место для первых построек.";
                     descriptionsUpdated = true;
@@ -55,7 +63,7 @@ public class SpawnConfig {
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
-            if (descriptionsUpdated) save();
+            if (descriptionsUpdated || teamIdsUpdated) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
@@ -95,9 +103,9 @@ public class SpawnConfig {
 
     private static void createDefault() {
         spawnPoints = new ArrayList<>(List.of(
-            new SpawnPoint("Лесная долина", "Лес рядом, вокруг есть место для первых построек.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "team1", "green"),
-            new SpawnPoint("Равнинное поселение", "Ровное место для базы, полей и поселения.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "team2", "blue"),
-            new SpawnPoint("Горное плато", "Горы, камень и хороший обзор окрестностей.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "team3", "gold")
+            new SpawnPoint("Лесная долина", "Лес рядом, вокруг есть место для первых построек.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "europe", "green"),
+            new SpawnPoint("Равнинное поселение", "Ровное место для базы, полей и поселения.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "africa", "blue"),
+            new SpawnPoint("Горное плато", "Горы, камень и хороший обзор окрестностей.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "avstralia", "gold")
         ));
         radius = 10;
         maxPlayersPerTeam = 0;
