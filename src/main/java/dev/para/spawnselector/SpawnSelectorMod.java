@@ -35,6 +35,15 @@ public class SpawnSelectorMod implements ModInitializer {
             var scoreboard = server.getScoreboard();
             var team = scoreboard.getPlayerTeam(spawn.team);
             if (team == null) team = scoreboard.addPlayerTeam(spawn.team);
+            String[] oldTeamIds = {"team1", "team2", "team3"};
+            if (i < oldTeamIds.length) {
+                var oldTeam = scoreboard.getPlayerTeam(oldTeamIds[i]);
+                if (oldTeam != null && oldTeam != team) {
+                    for (String member : java.util.Set.copyOf(oldTeam.getPlayers())) {
+                        scoreboard.addPlayerToTeam(member, team);
+                    }
+                }
+            }
             String color = spawn.color != null && !spawn.color.isBlank()
                     ? spawn.color : defaultColors[Math.min(i, defaultColors.length - 1)];
             try {
