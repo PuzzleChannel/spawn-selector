@@ -2,6 +2,8 @@ package dev.para.spawnselector;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.File;
@@ -36,10 +38,11 @@ public class SpawnConfig {
         }
 
         try (FileReader reader = new FileReader(CONFIG_FILE)) {
-            ConfigData data = GSON.fromJson(reader, ConfigData.class);
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            ConfigData data = GSON.fromJson(root, ConfigData.class);
             validate(data);
             spawnPoints = new ArrayList<>(data.spawnPoints);
-            boolean menuTextAdded = data.menuText == null;
+            boolean menuTextAdded = !root.has("menuText") || root.get("menuText").isJsonNull();
             menuText = menuTextAdded ? new MenuText() : data.menuText;
             // Update only the previous built-in descriptions; preserve any server-owner edits.
             boolean descriptionsUpdated = false;
