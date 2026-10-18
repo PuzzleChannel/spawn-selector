@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -24,6 +25,10 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class SpawnMenuHandler {
     private static final Gson GSON = new GsonBuilder().create();
     private static final Set<UUID> OPEN_MENUS = new HashSet<>();
+    // Players waiting for EasyAuth must be able to use its login/registration UI.
+    // Their selector is opened only after EasyAuth reports successful authentication.
+    private static final Set<UUID> PENDING_AUTH_MENUS = new HashSet<>();
+    private static boolean authBridgeWarningLogged;
     private static final int FREE_SPAWN_CENTER_X = 0;
     private static final int FREE_SPAWN_CENTER_Z = 0;
     private static final int FREE_SPAWN_SPREAD = 4_000;
@@ -36,17 +41,48 @@ public final class SpawnMenuHandler {
             ServerPlayer player = handler.getPlayer();
             if (!SpawnData.hasSelectedSpawn(player)) server.execute(() -> openMenu(player));
         });
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                OPEN_MENUS.remove(handler.getPlayer().getUUID()));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            UUID id = handler.getPlayer().getUUID();
+            OPEN_MENUS.remove(id);
+            PENDING_AUTH_MENUS.remove(id);
+        });
     }
 
     public static void openMenu(ServerPlayer player) {
-        if (player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
-        OPEN_MENUS.add(player.getUUID());
+        if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) {
+            if (player != null) {
+                PENDING_AUTH_MENUS.remove(player.getUUID());
+                OPEN_MENUS.remove(player.getUUID());
+            }
+            return;
+        }
+        UUID playerId = player.getUUID();
+        if (!isAuthenticationSatisfied(player)) {
+            // Do not send OpenMenu at JOIN: EasyAuth owns the UI until login/register.
+            OPEN_MENUS.remove(playerId);
+            PENDING_AUTH_MENUS.add(playerId);
+            return;
+        }
+        PENDING_AUTH_MENUS.remove(playerId);
+        OPEN_MENUS.add(playerId);
         sendMenu(player, "");
     }
 
     public static void tickOpenMenus(MinecraftServer server) {
+        // Poll pending players independently from the menu-refresh timer. EasyAuth marks
+        // a player authenticated as soon as login/registration (or auto-login) succeeds.
+        for (UUID id : Set.copyOf(PENDING_AUTH_MENUS)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) {
+                PENDING_AUTH_MENUS.remove(id);
+                continue;
+            }
+            if (isAuthenticationSatisfied(player)) {
+                PENDING_AUTH_MENUS.remove(id);
+                openMenu(player);
+            }
+        }
+
         long tick = server.getTickCount();
         if (tick - lastMenuRefreshTick < 40) return;
         lastMenuRefreshTick = tick;
@@ -125,6 +161,12 @@ public final class SpawnMenuHandler {
 
     public static void handleSpawnSelection(ServerPlayer player, int spawnIndex) {
         if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) return;
+        // Defense in depth: never accept a selection packet before EasyAuth authentication.
+        if (!isAuthenticationSatisfied(player)) {
+            OPEN_MENUS.remove(player.getUUID());
+            PENDING_AUTH_MENUS.add(player.getUUID());
+            return;
+        }
         if (!OPEN_MENUS.contains(player.getUUID())) return;
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         if (server == null) return;
@@ -218,6 +260,28 @@ public final class SpawnMenuHandler {
         OPEN_MENUS.remove(player.getUUID());
         SpawnData.markSpawnSelected(player);
         ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
+    }
+
+    /**
+     * Checks EasyAuth's own authenticated flag without a hard dependency on its classes.
+     * This keeps Spawn Selector usable without EasyAuth while integrating safely when present.
+     * If EasyAuth is installed but its bridge cannot be read, fail closed instead of allowing
+     * the selector to interfere with registration or accept a pre-authentication packet.
+     */
+    private static boolean isAuthenticationSatisfied(ServerPlayer player) {
+        if (!FabricLoader.getInstance().isModLoaded("easyauth")) return true;
+        try {
+            java.lang.reflect.Method method = player.getClass().getMethod("easyAuth$isAuthenticated");
+            return Boolean.TRUE.equals(method.invoke(player));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            if (!authBridgeWarningLogged) {
+                authBridgeWarningLogged = true;
+                SpawnSelectorMod.LOGGER.error(
+                        "EasyAuth обнаружен, но не удалось проверить состояние авторизации. " +
+                        "Выбор территории будет ждать корректной авторизации; проверьте совместимость EasyAuth.", e);
+            }
+            return false;
+        }
     }
 
     private static void assignLuckPermsGroup(ServerPlayer player, String group) {
