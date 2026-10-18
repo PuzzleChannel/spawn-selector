@@ -236,26 +236,11 @@ public class SpawnSelectorScreen extends Screen {
                 int sourceW = Math.max(1, sourceSize[0]);
                 int sourceH = Math.max(1, sourceSize[1]);
 
-                // Draw the whole source image, without cropping or stretching.
-                // Callers size the target rectangle to the source aspect ratio.
-                int drawW = w;
-                int drawH = h;
-                double sourceAspect = sourceW / (double) sourceH;
-                if (Math.abs((w / (double) h) - sourceAspect) > 0.003) {
-                    if (w / (double) h > sourceAspect) {
-                        drawW = Math.max(1, (int) Math.round(h * sourceAspect));
-                    } else {
-                        drawH = Math.max(1, (int) Math.round(w / sourceAspect));
-                    }
-                }
-                int drawX = x + (w - drawW) / 2;
-                int drawY = y + (h - drawH) / 2;
-                // The scaled blit overload takes the source region dimensions first,
-                // followed by the destination dimensions and full texture dimensions.
-                // Use a normalized full-texture UV region so non-power-of-two images
-                // are scaled across the entire preview rather than occupying the top-left.
-                g.blit(RenderPipelines.GUI_TEXTURED, id, drawX, drawY, 0.0F, 0.0F,
-                        drawW, drawH, sourceW, sourceH, drawW, drawH);
+                // Always fill the complete preview rectangle. The source image can have
+                // any resolution or aspect ratio; stretching is intentional so no corner
+                // is clipped and no letterboxing is left around the image.
+                g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0.0F, 0.0F,
+                        w, h, sourceW, sourceH, sourceW, sourceH);
             }
         } catch (RuntimeException ignored) {
             // Keep the preview background if an optional image is missing.
