@@ -29,9 +29,9 @@ public final class SpawnMenuHandler {
     // Their selector is opened only after EasyAuth reports successful authentication.
     private static final Set<UUID> PENDING_AUTH_MENUS = new HashSet<>();
     private static boolean authBridgeWarningLogged;
-    private static final int FREE_SPAWN_CENTER_X = 0;
-    private static final int FREE_SPAWN_CENTER_Z = 0;
-    private static final int FREE_SPAWN_SPREAD = 4_000;
+    private static final int FREE_SPAWN_CENTER_X = -16_000;
+    private static final int FREE_SPAWN_CENTER_Z = -6_000;
+    private static final int FREE_SPAWN_SPREAD = 10_000;
     private static long lastMenuRefreshTick = -40;
 
     private SpawnMenuHandler() {}
