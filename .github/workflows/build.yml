@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - feature/three-team-visual-selector
+  pull_request:
+    branches:
+      - feature/three-team-visual-selector
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build mod
+        run: bash gradlew build
+      - name: Upload mod JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: spawn-selector-mod-1.0.0
+          path: |
+            build/libs/spawn-selector-mod-1.0.0.jar
+          if-no-files-found: error
+          retention-days: 30

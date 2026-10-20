@@ -3,16 +3,18 @@
   "id": "spawnselector",
   "version": "${version}",
   "name": "Spawn Selector",
-  "description": "Server-side spawn point selection menu",
-  "authors": ["Para"],
+  "description": "Three-territory spawn selector with balanced team selection and safe spawn placement",
+  "authors": ["PuzzleChannel"],
   "contact": {},
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": [
-      "dev.para.spawnselector.SpawnSelectorMod"
-    ]
+    "main": ["dev.para.spawnselector.SpawnSelectorMod"],
+    "client": ["dev.para.spawnselector.client.SpawnSelectorClient"]
   },
+  "mixins": [
+    "spawnselector.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": "${minecraft_version}",
