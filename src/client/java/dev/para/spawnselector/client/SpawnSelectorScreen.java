@@ -146,7 +146,7 @@ public final class SpawnSelectorScreen extends Screen {
         int badgeX = contentX + 7;
         int badgeY = artY + 7;
         GuiGraphicsExtractor.fill(graphics, badgeX, badgeY, badgeX + 31, badgeY + 17, 0xCC080B12);
-        drawOutline(graphics, badgeX, badgeY, 31, 17, 0x664FFFFFFF);
+        drawOutline(graphics, badgeX, badgeY, 31, 17, 0x66FFFFFF);
         GuiGraphicsExtractor.drawCenteredString(graphics, this.font, String.format("%02d", index + 1),
                 badgeX + 15, badgeY + 4, light);
 
