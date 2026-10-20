@@ -17,6 +17,7 @@ public class SpawnSelectorMod implements ModInitializer {
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.OpenMenu.TYPE, SpawnPayloads.OpenMenu.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.CloseMenu.TYPE, SpawnPayloads.CloseMenu.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.TeamsUpdate.TYPE, SpawnPayloads.TeamsUpdate.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SpawnPayloads.TerritoryData.TYPE, SpawnPayloads.TerritoryData.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(SpawnPayloads.Choose.TYPE, SpawnPayloads.Choose.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(SpawnPayloads.Choose.TYPE, (payload, context) ->
                 ((net.minecraft.server.level.ServerLevel) context.player().level()).getServer().execute(() ->
