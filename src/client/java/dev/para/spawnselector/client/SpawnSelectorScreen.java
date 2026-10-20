@@ -1,60 +1,68 @@
 package dev.para.spawnselector.client;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import dev.para.spawnselector.client.SpawnSelectorClient.SpawnTeamView;
 import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 
+import javax.imageio.ImageIO;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.imageio.ImageIO;
 
-public class SpawnSelectorScreen extends Screen {
-    private final List<SpawnTeamView> teams;
+public final class SpawnSelectorScreen extends Screen {
+    private List<SpawnTeamView> teams;
     private final Map<String, String> menuText;
-    private boolean compactLayout;
     private final String message;
+    private boolean compactLayout;
     private int hovered = -1;
     private int lastHovered = -1;
+
     private static final Map<String, Boolean> ICON_VALIDITY = new ConcurrentHashMap<>();
+    private static final int[] ACCENT = {0xFF3B82F6, 0xFFEF4444, 0xFFF59E0B};
+    private static final int[] ACCENT_DARK = {0xFF1E3A8A, 0xFF7F1D1D, 0xFF78350F};
+    private static final int[] ACCENT_LIGHT = {0xFF93C5FD, 0xFFFCA5A5, 0xFFFDE68A};
 
-    // Уникальная палитра фракций:
-    // 0: Европа — Сапфировый / Лазурный
-    // 1: Азия — Рубиновый / Карминовый
-    // 2: Австралия — Янтарно-золотой
-    private static final int[] THEME_COLORS = { 0xFF3B82F6, 0xFFEF4444, 0xFFF59E0B };
-    private static final int[] THEME_DARK =   { 0xFF1E3A8A, 0xFF7F1D1D, 0xFF78350F };
-    private static final int[] THEME_LIGHT =  { 0xFF93C5FD, 0xFFFCA5A5, 0xFFFDE68A };
-
-    public SpawnSelectorScreen(List<SpawnTeamView> teams, int unassignedOnlineCount, String message, Map<String, String> menuText) {
-        super(Component.literal(menuText.getOrDefault("screenTitle", "ВЫБОР ТЕРРИТОРИИ")));
-        this.teams = teams;
-        this.message = message;
-        this.menuText = menuText;
+    public SpawnSelectorScreen(List<SpawnTeamView> teams, String message, Map<String, String> menuText) {
+        super(Component.literal(text(menuText, "windowTitle", "Выбор территории")));
+        this.teams = new ArrayList<>(teams);
+        this.message = message == null ? "" : message;
+        this.menuText = menuText == null ? Map.of() : menuText;
     }
 
     @Override
     protected void init() {
         super.init();
-        this.compactLayout = this.height < 340;
+        this.compactLayout = this.height < 450;
     }
 
-    @Override public boolean isPauseScreen() { return false; }
-    @Override public boolean shouldCloseOnEsc() { return false; }
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return false;
+    }
 
     @Override
     public void renderBackground(Object graphics, int mouseX, int mouseY, float delta) {
-        // Элегантное глубокое затемнение игрового мира
         GuiGraphicsExtractor.fill(graphics, 0, 0, this.width, this.height, 0xEE080B12);
+        // A subtle, restrained vignette made from translucent horizontal bands.
+        GuiGraphicsExtractor.fill(graphics, 0, 0, this.width, 2, 0x332C3D58);
+        GuiGraphicsExtractor.fill(graphics, 0, this.height - 2, this.width, this.height, 0x55000000);
     }
 
     @Override
@@ -62,122 +70,135 @@ public class SpawnSelectorScreen extends Screen {
         super.render(graphics, mouseX, mouseY, delta);
         this.hovered = -1;
 
-        // Заголовок экрана
-        int titleY = compactLayout ? 10 : 20;
-        String titleText = getText("screenTitle", "ВЫБОР ТЕРРИТОРИИ");
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + titleText, this.width / 2, titleY, 0xFFFFFF);
+        int titleY = compactLayout ? 8 : 18;
+        String title = getText("headerTitle", "ВЫБЕРИТЕ ТЕРРИТОРИЮ");
+        String subtitle = getText("headerSubtitle", "Выберите сторону, с которой начнётся ваша история");
 
-        String subtitle = getText("screenSubtitle", "Выберите стартовую фракцию для основания своей базы");
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§7" + subtitle, this.width / 2, titleY + 13, 0x94A3B8);
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + title, this.width / 2, titleY, 0xFFFFFFFF);
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§7" + subtitle, this.width / 2, titleY + 15, 0xFFB8C4D6);
 
-        if (this.message != null && !this.message.isEmpty()) {
-            GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§c⚠ " + this.message, this.width / 2, titleY + 26, 0xF87171);
-        }
-
-        // 3 вертикальные hero-панели территорий
         int count = Math.min(this.teams.size(), 3);
-        int cardW = compactLayout ? 144 : 168;
-        int cardH = compactLayout ? 186 : 228;
-        int cardGap = compactLayout ? 12 : 18;
-
-        // Авто-масштабирование, если экран уже ширины карточек
-        int maxAvailableW = this.width - 32;
-        if ((count * cardW) + ((count - 1) * cardGap) > maxAvailableW && count > 0) {
-            cardW = (maxAvailableW - ((count - 1) * cardGap)) / count;
+        boolean hasMessage = !this.message.isBlank();
+        if (hasMessage) {
+            GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§c⚠ " + this.message,
+                    this.width / 2, titleY + 29, 0xFFF87171);
         }
 
-        int totalWidth = (count * cardW) + ((count - 1) * cardGap);
-        int startX = (this.width - totalWidth) / 2;
+        int headerSpace = titleY + (hasMessage ? 43 : 32);
+        int outerPadding = this.width < 720 ? 16 : 28;
+        int cardGap = this.width < 800 ? 12 : 18;
+        int availableWidth = Math.max(0, this.width - outerPadding * 2);
+        int cardWidth = count == 0 ? 0 : Math.min(292, (availableWidth - cardGap * (count - 1)) / count);
+        cardWidth = Math.max(count == 0 ? 0 : 118, cardWidth);
 
-        int headerSpace = titleY + 34;
-        int startY = headerSpace + Math.max(0, (this.height - headerSpace - cardH) / 2);
+        int desiredCardHeight = compactLayout ? 292 : 350;
+        int cardHeight = Math.min(desiredCardHeight, Math.max(170, this.height - headerSpace - 25));
+        int totalWidth = count * cardWidth + Math.max(0, count - 1) * cardGap;
+        int startX = (this.width - totalWidth) / 2;
+        int remainingHeight = this.height - headerSpace - cardHeight - 22;
+        int startY = headerSpace + Math.max(8, remainingHeight / 2);
 
         for (int i = 0; i < count; i++) {
-            int cx = startX + i * (cardW + cardGap);
-            int cy = startY;
-            boolean isHovered = mouseX >= cx && mouseX < cx + cardW && mouseY >= cy && mouseY < cy + cardH;
-            if (isHovered) this.hovered = i;
-            renderTerritoryCard(graphics, cx, cy, cardW, cardH, this.teams.get(i), i, isHovered, mouseX, mouseY);
+            int x = startX + i * (cardWidth + cardGap);
+            boolean cardHovered = mouseX >= x && mouseX < x + cardWidth
+                    && mouseY >= startY && mouseY < startY + cardHeight;
+            if (cardHovered) this.hovered = i;
+            renderTerritoryCard(graphics, x, startY, cardWidth, cardHeight,
+                    this.teams.get(i), i, cardHovered);
         }
 
-        // Звуковой отклик при наведении на новую панель
-        if (this.hovered != this.lastHovered && this.hovered != -1) {
+        if (count == 0) {
+            GuiGraphicsExtractor.drawCenteredString(graphics, this.font,
+                    "§c" + getText("errorLoad", "Не удалось загрузить список территорий."),
+                    this.width / 2, this.height / 2, 0xFFFF7777);
+        }
+
+        if (this.hovered != this.lastHovered && this.hovered >= 0) {
             playHoverSound();
         }
         this.lastHovered = this.hovered;
+
+        String footer = "Выбор закрепит территорию и назначит соответствующую команду";
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§8" + footer,
+                this.width / 2, this.height - 14, 0xFF64748B);
     }
 
-    private void renderTerritoryCard(Object graphics, int x, int y, int w, int h, SpawnTeamView team, int index, boolean isHovered, int mouseX, int mouseY) {
-        int themeColor = THEME_COLORS[index % THEME_COLORS.length];
-        int themeDark  = THEME_DARK[index % THEME_DARK.length];
-        int themeLight = THEME_LIGHT[index % THEME_LIGHT.length];
-
-        // Фон панели и контурная подсветка
-        int bg = isHovered ? 0xF5131C2C : 0xDF0C1320;
-        int border = isHovered ? themeColor : (team.selectable() ? 0xFF28354A : 0xFF3D2323);
+    private void renderTerritoryCard(Object graphics, int x, int y, int w, int h,
+                                     SpawnTeamView team, int index, boolean isHovered) {
+        int accent = ACCENT[index % ACCENT.length];
+        int dark = ACCENT_DARK[index % ACCENT_DARK.length];
+        int light = ACCENT_LIGHT[index % ACCENT_LIGHT.length];
+        int pad = compactLayout ? 8 : 11;
+        int contentX = x + pad;
+        int contentW = Math.max(1, w - pad * 2);
+        int bg = isHovered ? 0xF51A2535 : 0xE9101724;
 
         GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + h, bg);
-        drawOutline(graphics, x, y, w, h, border);
+        drawOutline(graphics, x, y, w, h, isHovered ? accent : 0xFF2A3547);
+        GuiGraphicsExtractor.fill(graphics, x + 1, y + 1, x + w - 1, y + 4, isHovered ? light : accent);
 
-        // Верхняя акцентная линия фракции
-        GuiGraphicsExtractor.fill(graphics, x + 1, y + 1, x + w - 1, y + 3, isHovered ? themeLight : themeColor);
+        int artH = Math.min(compactLayout ? 104 : 130, Math.max(54, (contentW * 9) / 16));
+        int artY = y + pad + 3;
+        renderTerritoryArt(graphics, team.buttonIcon(), contentX, artY, contentW, artH,
+                isHovered, accent);
 
-        int pad = compactLayout ? 7 : 9;
-        int contentX = x + pad;
-        int contentW = w - pad * 2;
-        int curY = y + pad + 2;
+        // Number badge creates a clear visual identity without cluttering the artwork.
+        int badgeX = contentX + 7;
+        int badgeY = artY + 7;
+        GuiGraphicsExtractor.fill(graphics, badgeX, badgeY, badgeX + 31, badgeY + 17, 0xCC080B12);
+        drawOutline(graphics, badgeX, badgeY, 31, 17, 0x664FFFFFFF);
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, String.format("%02d", index + 1),
+                badgeX + 15, badgeY + 4, light);
 
-        // 1. Арт / Превью территории
-        int iconH = compactLayout ? 50 : 66;
-        renderTerritoryArt(graphics, team.buttonIcon(), contentX, curY, contentW, iconH, isHovered, themeColor);
-        curY += iconH + (compactLayout ? 6 : 8);
+        int nameY = artY + artH + (compactLayout ? 7 : 10);
+        String displayName = fitText(team.name(), contentW - 8);
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + displayName,
+                x + w / 2, nameY, team.selectable() ? 0xFFFFFFFF : 0xFF9299A5);
 
-        // 2. Название территории (Европа / Азия / Австралия)
-        int nameColor = team.selectable() ? (isHovered ? themeLight : 0xFFFFFF) : 0x777777;
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + team.name(), x + w / 2, curY, nameColor);
-        curY += (compactLayout ? 12 : 15);
+        int pillY = nameY + (compactLayout ? 15 : 18);
+        int pillH = compactLayout ? 17 : 20;
+        int pillW = Math.max(52, contentW - 18);
+        int pillX = x + (w - pillW) / 2;
+        GuiGraphicsExtractor.fill(graphics, pillX, pillY, pillX + pillW, pillY + pillH, 0x77070B12);
+        drawOutline(graphics, pillX, pillY, pillW, pillH, 0x332D3C50);
+        String countLabel = team.countLabel() == null ? "" : team.countLabel();
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§a● §f" + fitText(countLabel, pillW - 10),
+                x + w / 2, pillY + (pillH - 8) / 2, 0xFFFFFFFF);
 
-        // 3. Бейдж онлайна: [ ● X онлайн | Y всего ]
-        int pillH = compactLayout ? 13 : 15;
-        GuiGraphicsExtractor.fill(graphics, contentX + 6, curY, contentX + contentW - 6, curY + pillH, 0x55000000);
-        drawOutline(graphics, contentX + 6, curY, contentW - 12, pillH, 0x22FFFFFF);
+        int buttonH = compactLayout ? 24 : 29;
+        int buttonY = y + h - pad - buttonH;
+        int descriptionY = pillY + pillH + (compactLayout ? 7 : 10);
+        int descriptionH = Math.max(0, buttonY - descriptionY - 8);
+        drawMultilineText(graphics, team.description(), contentX + 2, descriptionY,
+                Math.max(1, contentW - 4), descriptionH, 0xFFCBD5E1);
 
-        String statsText = String.format("§a● %d §7онлайн §8| §f%d §7всего", team.onlineCount(), team.totalCount());
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, statsText, x + w / 2, curY + (compactLayout ? 2 : 3), 0xDDDDDD);
-        curY += pillH + (compactLayout ? 6 : 8);
-
-        // 4. Описание территории
-        int btnH = compactLayout ? 20 : 24;
-        int btnY = y + h - pad - btnH;
-        int descMaxH = Math.max(10, btnY - curY - 4);
-        drawMultilineText(graphics, team.description(), contentX, curY, contentW, descMaxH, 0xCBD5E1);
-
-        // 5. Большая кнопка выбора фракции
-        boolean btnHover = isHovered && mouseX >= contentX && mouseX < contentX + contentW && mouseY >= btnY && mouseY < btnY + btnH;
-        int btnBg = !team.selectable() ? 0x44261717 : (btnHover ? themeColor : themeDark);
-        int btnBorder = !team.selectable() ? 0xFF4A2222 : (btnHover ? 0xFFFFFFFF : themeColor);
-
-        GuiGraphicsExtractor.fill(graphics, contentX, btnY, contentX + contentW, btnY + btnH, btnBg);
-        drawOutline(graphics, contentX, btnY, contentW, btnH, btnBorder);
-
-        String btnText = team.selectable()
-                ? getText("selectTeamButton", "ВЫБРАТЬ")
-                : getText("teamFullText", "ЗАПОЛНЕНА");
-        int btnTextColor = team.selectable() ? 0xFFFFFF : 0x888888;
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + btnText, x + w / 2, btnY + (btnH - 8) / 2, btnTextColor);
+        boolean selectable = team.selectable();
+        int buttonBg = !selectable ? 0x66302A2A : (isHovered ? accent : dark);
+        int buttonBorder = !selectable ? 0xFF563D42 : (isHovered ? light : accent);
+        GuiGraphicsExtractor.fill(graphics, contentX, buttonY, contentX + contentW, buttonY + buttonH, buttonBg);
+        drawOutline(graphics, contentX, buttonY, contentW, buttonH, buttonBorder);
+        String buttonText = selectable
+                ? getText("chooseButton", "ВЫБРАТЬ ТЕРРИТОРИЮ")
+                : getText("unavailable", "НЕДОСТУПНО");
+        int buttonColor = selectable ? 0xFFFFFFFF : 0xFF9797A1;
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + fitText(buttonText, contentW - 10),
+                x + w / 2, buttonY + (buttonH - 8) / 2, buttonColor);
     }
 
-    private void renderTerritoryArt(Object graphics, String iconPath, int x, int y, int w, int h, boolean isHovered, int accentColor) {
-        if (iconPath != null && !iconPath.trim().isEmpty()) {
+    private void renderTerritoryArt(Object graphics, String iconPath, int x, int y, int w, int h,
+                                    boolean isHovered, int accentColor) {
+        if (iconPath != null && !iconPath.isBlank()) {
             try {
                 String cleanPath = iconPath.trim();
                 Identifier id = cleanPath.contains(":")
                         ? Identifier.parse(cleanPath)
-                        : Identifier.fromNamespaceAndPath("spawnselector", cleanPath);
+                        : Identifier.fromNamespaceAndPath("spawnselector",
+                            cleanPath.startsWith("textures/") ? cleanPath : "textures/gui/spawn_selector/" + cleanPath);
 
                 Boolean valid = ICON_VALIDITY.get(cleanPath);
                 if (valid == null) {
-                    try (var stream = Minecraft.getInstance().getResourceManager().getResource(id).orElseThrow().open()) {
+                    try (var stream = Minecraft.getInstance().getResourceManager()
+                            .getResource(id).orElseThrow().open()) {
                         valid = ImageIO.read(stream) != null;
                     } catch (Exception e) {
                         valid = false;
@@ -188,78 +209,126 @@ public class SpawnSelectorScreen extends Screen {
                 if (valid) {
                     RenderPipelines.COLOR_TEXTURE.get();
                     GuiGraphicsExtractor.blit(graphics, id, x, y, 0.0f, 0.0f, w, h, w, h);
-                    drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF2A374F);
+                    drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF344258);
                     return;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // Use the themed placeholder below if a custom image cannot be loaded.
+            }
         }
 
-        // Стилизованная подложка, если изображение грузится
-        int placeholderBg = isHovered ? 0xFF1C2738 : 0xFF121B27;
-        GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + h, placeholderBg);
-        drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF253347);
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§8[ ТЕРРИТОРИЯ ]", x + w / 2, y + h / 2 - 4, accentColor);
+        GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + h,
+                isHovered ? 0xFF1C2A3D : 0xFF121B2A);
+        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§8ПРЕВЬЮ ТЕРРИТОРИИ",
+                x + w / 2, y + h / 2 - 4, accentColor);
+        drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF344258);
     }
 
     private void drawMultilineText(Object graphics, String text, int x, int y, int maxW, int maxH, int color) {
-        if (text == null || text.isEmpty() || maxH < 8) return;
-        List<String> words = List.of(text.split(" "));
+        if (text == null || text.isBlank() || maxH < this.font.lineHeight) return;
+        String[] words = text.trim().split("\\s+");
+        List<String> lines = new ArrayList<>();
         StringBuilder line = new StringBuilder();
-        int curY = y;
-        int lineHeight = compactLayout ? 9 : 10;
 
         for (String word : words) {
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (this.font.width(test) <= maxW) {
-                line = new StringBuilder(test);
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (this.font.width(candidate) <= maxW) {
+                line = new StringBuilder(candidate);
             } else {
-                if (curY + lineHeight > y + maxH) break;
-                GuiGraphicsExtractor.drawString(graphics, this.font, line.toString(), x, curY, color, false);
+                if (line.length() > 0) lines.add(line.toString());
                 line = new StringBuilder(word);
-                curY += lineHeight;
             }
         }
-        if (line.length() > 0 && curY + lineHeight <= y + maxH) {
-            GuiGraphicsExtractor.drawString(graphics, this.font, line.toString(), x, curY, color, false);
+        if (line.length() > 0) lines.add(line.toString());
+
+        int lineHeight = compactLayout ? 9 : 10;
+        int maxLines = Math.max(1, maxH / lineHeight);
+        int drawLines = Math.min(lines.size(), maxLines);
+        for (int i = 0; i < drawLines; i++) {
+            String value = lines.get(i);
+            if (i == maxLines - 1 && lines.size() > maxLines) {
+                while (!value.isEmpty() && this.font.width(value + "…") > maxW) {
+                    value = value.substring(0, value.length() - 1);
+                }
+                value += "…";
+            }
+            GuiGraphicsExtractor.drawString(graphics, this.font, value, x, y + i * lineHeight, color, false);
         }
+    }
+
+    private String fitText(String value, int maxWidth) {
+        if (value == null) return "";
+        if (this.font.width(value) <= maxWidth) return value;
+        String shortened = value;
+        while (!shortened.isEmpty() && this.font.width(shortened + "…") > maxWidth) {
+            shortened = shortened.substring(0, shortened.length() - 1);
+        }
+        return shortened.isEmpty() ? "" : shortened + "…";
+    }
+
+    private static String text(Map<String, String> values, String key, String fallback) {
+        if (values == null) return fallback;
+        String value = values.get(key);
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private String getText(String key, String fallback) {
-        if (this.menuText != null && this.menuText.containsKey(key)) {
-            String val = this.menuText.get(key);
-            if (val != null && !val.isBlank()) return val;
+        return text(this.menuText, key, fallback);
+    }
+
+    public void updateTeams(JsonArray updates) {
+        if (updates == null) return;
+        int count = Math.min(Math.min(updates.size(), this.teams.size()), 3);
+        for (int i = 0; i < count; i++) {
+            try {
+                JsonObject update = updates.get(i).getAsJsonObject();
+                SpawnTeamView old = this.teams.get(i);
+                int players = update.has("count") ? update.get("count").getAsInt() : old.count();
+                int max = update.has("max") ? update.get("max").getAsInt() : old.max();
+                boolean available = !update.has("available") || update.get("available").getAsBoolean();
+                String template = getText(max > 0 ? "playersLimited" : "players",
+                        max > 0 ? "{count}/{max} игроков" : "{count} игроков");
+                String label = template.replace("{count}", Integer.toString(players))
+                        .replace("{max}", Integer.toString(max));
+                this.teams.set(i, new SpawnTeamView(old.id(), old.name(), old.description(),
+                        old.buttonIcon(), players, max, label, available));
+            } catch (RuntimeException ignored) {
+                // Ignore a malformed individual update instead of closing the selector.
+            }
         }
-        return fallback;
     }
 
     private void drawOutline(Object graphics, int x, int y, int w, int h, int color) {
+        if (w <= 0 || h <= 0) return;
         GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + 1, color);
         GuiGraphicsExtractor.fill(graphics, x, y + h - 1, x + w, y + h, color);
-        GuiGraphicsExtractor.fill(graphics, x, y + 1, y + h, color);
-        GuiGraphicsExtractor.fill(graphics, x + w - 1, y, x + w, y + h, color);
+        GuiGraphicsExtractor.fill(graphics, x, y + 1, x + 1, y + h - 1, color);
+        GuiGraphicsExtractor.fill(graphics, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
-            // Клик по любой из трёх карточек территорий
-            if (this.hovered >= 0 && this.hovered < this.teams.size()) {
-                SpawnTeamView team = this.teams.get(this.hovered);
-                if (team.selectable()) {
-                    playClickSound();
-                    ClientPlayNetworking.send(new SpawnPayloads.SelectSpawn(team.id()));
-                    return true;
-                }
+        if (event.button() == 0 && this.hovered >= 0 && this.hovered < this.teams.size()) {
+            SpawnTeamView team = this.teams.get(this.hovered);
+            if (team.selectable()) {
+                playClickSound();
+                ClientPlayNetworking.send(new SpawnPayloads.Choose(team.id()));
+                return true;
+            } else {
+                playClickSound();
+                return true;
             }
         }
         return super.mouseClicked(event, doubleClick);
     }
 
     private void playClickSound() {
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        Minecraft.getInstance().getSoundManager()
+                .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
     private void playHoverSound() {
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 0.35F, 1.6F));
+        Minecraft.getInstance().getSoundManager()
+                .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 0.35F, 1.6F));
     }
 }
