@@ -28,8 +28,14 @@ public final class SpawnSelectorScreen extends Screen {
     private boolean compactLayout;
     private int hovered = -1;
     private int lastHovered = -1;
+    private int cardsX;
+    private int cardsY;
+    private int cardWidth;
+    private int cardHeight;
+    private int cardGap;
+    private int cardCount;
 
-    private static final Map<String, Boolean> ICON_VALIDITY = new ConcurrentHashMap<>();
+    private static final Map<Identifier, int[]> IMAGE_SIZES = new ConcurrentHashMap<>();
     private static final int[] ACCENT = {0xFF3B82F6, 0xFFEF4444, 0xFFF59E0B};
     private static final int[] ACCENT_DARK = {0xFF1E3A8A, 0xFF7F1D1D, 0xFF78350F};
     private static final int[] ACCENT_LIGHT = {0xFF93C5FD, 0xFFFCA5A5, 0xFFFDE68A};
@@ -38,92 +44,73 @@ public final class SpawnSelectorScreen extends Screen {
         super(Component.literal(text(menuText, "windowTitle", "Выбор территории")));
         this.teams = new ArrayList<>(teams);
         this.message = message == null ? "" : message;
-        this.menuText = menuText == null ? Map.of() : menuText;
+        this.menuText = menuText == null ? Map.of() : Map.copyOf(menuText);
+    }
+
+    private static String text(Map<String, String> values, String key, String fallback) {
+        String value = values == null ? null : values.get(key);
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String getText(String key, String fallback) {
+        return text(this.menuText, key, fallback);
     }
 
     @Override
-    protected void init() {
-        super.init();
-        this.compactLayout = this.height < 450;
-    }
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
+        g.fill(0, 0, width, height, 0xEE080B12);
+        g.fill(0, 0, width, 2, 0x332C3D58);
+        g.fill(0, height - 2, width, height, 0x55000000);
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
-
-    @Override
-    public boolean shouldCloseOnEsc() {
-        return false;
-    }
-
-    @Override
-    public void renderBackground(Object graphics, int mouseX, int mouseY, float delta) {
-        GuiGraphicsExtractor.fill(graphics, 0, 0, this.width, this.height, 0xEE080B12);
-        // A subtle, restrained vignette made from translucent horizontal bands.
-        GuiGraphicsExtractor.fill(graphics, 0, 0, this.width, 2, 0x332C3D58);
-        GuiGraphicsExtractor.fill(graphics, 0, this.height - 2, this.width, this.height, 0x55000000);
-    }
-
-    @Override
-    public void render(Object graphics, int mouseX, int mouseY, float delta) {
-        super.render(graphics, mouseX, mouseY, delta);
-        this.hovered = -1;
-
+        compactLayout = width < 680 || height < 450;
         int titleY = compactLayout ? 8 : 18;
         String title = getText("headerTitle", "ВЫБЕРИТЕ ТЕРРИТОРИЮ");
-        String subtitle = getText("headerSubtitle", "Выберите сторону, с которой начнётся ваша история");
+        String subtitle = getText("headerSubtitle", "Выберите стартовую территорию своей команды");
+        drawCentered(g, "§l" + title, width / 2, titleY, 0xFFFFFFFF);
+        drawCentered(g, "§7" + subtitle, width / 2, titleY + 15, 0xFFB8C4D6);
 
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + title, this.width / 2, titleY, 0xFFFFFFFF);
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§7" + subtitle, this.width / 2, titleY + 15, 0xFFB8C4D6);
-
-        int count = Math.min(this.teams.size(), 3);
         boolean hasMessage = !this.message.isBlank();
         if (hasMessage) {
-            GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§c⚠ " + this.message,
-                    this.width / 2, titleY + 29, 0xFFF87171);
+            drawCentered(g, "§c⚠ " + this.message, width / 2, titleY + 29, 0xFFF87171);
         }
 
+        cardCount = Math.min(this.teams.size(), 3);
         int headerSpace = titleY + (hasMessage ? 43 : 32);
-        int outerPadding = this.width < 720 ? 16 : 28;
-        int cardGap = this.width < 800 ? 12 : 18;
-        int availableWidth = Math.max(0, this.width - outerPadding * 2);
-        int cardWidth = count == 0 ? 0 : Math.min(292, (availableWidth - cardGap * (count - 1)) / count);
-        cardWidth = Math.max(count == 0 ? 0 : 118, cardWidth);
+        int outerPadding = width < 720 ? 16 : 28;
+        cardGap = width < 800 ? 12 : 18;
+        int availableWidth = Math.max(0, width - outerPadding * 2);
+        cardWidth = cardCount == 0 ? 0 : Math.min(292,
+                (availableWidth - cardGap * (cardCount - 1)) / cardCount);
+        cardWidth = Math.max(cardCount == 0 ? 0 : 96, cardWidth);
 
-        int desiredCardHeight = compactLayout ? 292 : 350;
-        int cardHeight = Math.min(desiredCardHeight, Math.max(170, this.height - headerSpace - 25));
-        int totalWidth = count * cardWidth + Math.max(0, count - 1) * cardGap;
-        int startX = (this.width - totalWidth) / 2;
-        int remainingHeight = this.height - headerSpace - cardHeight - 22;
-        int startY = headerSpace + Math.max(8, remainingHeight / 2);
+        int desiredHeight = compactLayout ? 292 : 350;
+        cardHeight = Math.min(desiredHeight, Math.max(170, height - headerSpace - 25));
+        int totalWidth = cardCount * cardWidth + Math.max(0, cardCount - 1) * cardGap;
+        cardsX = (width - totalWidth) / 2;
+        int remainingHeight = height - headerSpace - cardHeight - 22;
+        cardsY = headerSpace + Math.max(8, remainingHeight / 2);
+        hovered = -1;
 
-        for (int i = 0; i < count; i++) {
-            int x = startX + i * (cardWidth + cardGap);
-            boolean cardHovered = mouseX >= x && mouseX < x + cardWidth
-                    && mouseY >= startY && mouseY < startY + cardHeight;
-            if (cardHovered) this.hovered = i;
-            renderTerritoryCard(graphics, x, startY, cardWidth, cardHeight,
-                    this.teams.get(i), i, cardHovered);
+        for (int i = 0; i < cardCount; i++) {
+            int x = cardsX + i * (cardWidth + cardGap);
+            boolean cardHovered = inside(mouseX, mouseY, x, cardsY, cardWidth, cardHeight);
+            if (cardHovered) hovered = i;
+            renderTerritoryCard(g, x, cardsY, cardWidth, cardHeight, this.teams.get(i), i, cardHovered);
         }
 
-        if (count == 0) {
-            GuiGraphicsExtractor.drawCenteredString(graphics, this.font,
-                    "§c" + getText("errorLoad", "Не удалось загрузить список территорий."),
-                    this.width / 2, this.height / 2, 0xFFFF7777);
+        if (cardCount == 0) {
+            drawCentered(g, "§c" + getText("errorLoad", "Не удалось загрузить список территорий."),
+                    width / 2, height / 2, 0xFFFF7777);
         }
 
-        if (this.hovered != this.lastHovered && this.hovered >= 0) {
-            playHoverSound();
-        }
-        this.lastHovered = this.hovered;
-
-        String footer = "Выбор закрепит территорию и назначит соответствующую команду";
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§8" + footer,
-                this.width / 2, this.height - 14, 0xFF64748B);
+        if (hovered != lastHovered && hovered >= 0) playUiSound(1.45F, 0.18F);
+        lastHovered = hovered;
+        drawCentered(g, "§8Выбор закрепит территорию и назначит соответствующую команду",
+                width / 2, height - 14, 0xFF64748B);
     }
 
-    private void renderTerritoryCard(Object graphics, int x, int y, int w, int h,
+    private void renderTerritoryCard(GuiGraphicsExtractor g, int x, int y, int w, int h,
                                      SpawnTeamView team, int index, boolean isHovered) {
         int accent = ACCENT[index % ACCENT.length];
         int dark = ACCENT_DARK[index % ACCENT_DARK.length];
@@ -133,60 +120,54 @@ public final class SpawnSelectorScreen extends Screen {
         int contentW = Math.max(1, w - pad * 2);
         int bg = isHovered ? 0xF51A2535 : 0xE9101724;
 
-        GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + h, bg);
-        drawOutline(graphics, x, y, w, h, isHovered ? accent : 0xFF2A3547);
-        GuiGraphicsExtractor.fill(graphics, x + 1, y + 1, x + w - 1, y + 4, isHovered ? light : accent);
+        g.fill(x, y, x + w, y + h, bg);
+        drawOutline(g, x, y, w, h, isHovered ? accent : 0xFF2A3547);
+        g.fill(x + 1, y + 1, x + w - 1, y + 4, isHovered ? light : accent);
 
-        int artH = Math.min(compactLayout ? 104 : 130, Math.max(54, (contentW * 9) / 16));
+        int artH = Math.min(compactLayout ? 104 : 130, Math.max(54, (contentW * 529) / 940));
         int artY = y + pad + 3;
-        renderTerritoryArt(graphics, team.buttonIcon(), contentX, artY, contentW, artH,
-                isHovered, accent);
+        renderTerritoryArt(g, team.buttonIcon(), contentX, artY, contentW, artH, isHovered, accent);
 
-        // Number badge creates a clear visual identity without cluttering the artwork.
         int badgeX = contentX + 7;
         int badgeY = artY + 7;
-        GuiGraphicsExtractor.fill(graphics, badgeX, badgeY, badgeX + 31, badgeY + 17, 0xCC080B12);
-        drawOutline(graphics, badgeX, badgeY, 31, 17, 0x66FFFFFF);
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, String.format("%02d", index + 1),
-                badgeX + 15, badgeY + 4, light);
+        g.fill(badgeX, badgeY, badgeX + 31, badgeY + 17, 0xCC080B12);
+        drawOutline(g, badgeX, badgeY, 31, 17, 0x66FFFFFF);
+        drawCentered(g, String.format("%02d", index + 1), badgeX + 15, badgeY + 4, light);
 
         int nameY = artY + artH + (compactLayout ? 7 : 10);
         String displayName = fitText(team.name(), contentW - 8);
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + displayName,
-                x + w / 2, nameY, team.selectable() ? 0xFFFFFFFF : 0xFF9299A5);
+        drawCentered(g, "§l" + displayName, x + w / 2, nameY,
+                team.selectable() ? 0xFFFFFFFF : 0xFF9299A5);
 
         int pillY = nameY + (compactLayout ? 15 : 18);
         int pillH = compactLayout ? 17 : 20;
         int pillW = Math.max(52, contentW - 18);
         int pillX = x + (w - pillW) / 2;
-        GuiGraphicsExtractor.fill(graphics, pillX, pillY, pillX + pillW, pillY + pillH, 0x77070B12);
-        drawOutline(graphics, pillX, pillY, pillW, pillH, 0x332D3C50);
-        String countLabel = team.countLabel() == null ? "" : team.countLabel();
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§a● §f" + fitText(countLabel, pillW - 10),
+        g.fill(pillX, pillY, pillX + pillW, pillY + pillH, 0x77070B12);
+        drawOutline(g, pillX, pillY, pillW, pillH, 0x332D3C50);
+        drawCentered(g, "§a● §f" + fitText(team.countLabel(), pillW - 10),
                 x + w / 2, pillY + (pillH - 8) / 2, 0xFFFFFFFF);
 
         int buttonH = compactLayout ? 24 : 29;
         int buttonY = y + h - pad - buttonH;
         int descriptionY = pillY + pillH + (compactLayout ? 7 : 10);
         int descriptionH = Math.max(0, buttonY - descriptionY - 8);
-        drawMultilineText(graphics, team.description(), contentX + 2, descriptionY,
+        drawMultilineText(g, team.description(), contentX + 2, descriptionY,
                 Math.max(1, contentW - 4), descriptionH, 0xFFCBD5E1);
 
-        boolean selectable = team.selectable();
-        int buttonBg = !selectable ? 0x66302A2A : (isHovered ? accent : dark);
-        int buttonBorder = !selectable ? 0xFF563D42 : (isHovered ? light : accent);
-        GuiGraphicsExtractor.fill(graphics, contentX, buttonY, contentX + contentW, buttonY + buttonH, buttonBg);
-        drawOutline(graphics, contentX, buttonY, contentW, buttonH, buttonBorder);
-        String buttonText = selectable
+        int buttonBg = !team.selectable() ? 0x66302A2A : (isHovered ? accent : dark);
+        int buttonBorder = !team.selectable() ? 0xFF563D42 : (isHovered ? light : accent);
+        g.fill(contentX, buttonY, contentX + contentW, buttonY + buttonH, buttonBg);
+        drawOutline(g, contentX, buttonY, contentW, buttonH, buttonBorder);
+        String buttonText = team.selectable()
                 ? getText("chooseButton", "ВЫБРАТЬ ТЕРРИТОРИЮ")
                 : getText("unavailable", "НЕДОСТУПНО");
-        int buttonColor = selectable ? 0xFFFFFFFF : 0xFF9797A1;
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§l" + fitText(buttonText, contentW - 10),
-                x + w / 2, buttonY + (buttonH - 8) / 2, buttonColor);
+        drawCentered(g, "§l" + fitText(buttonText, contentW - 10), x + w / 2,
+                buttonY + (buttonH - 8) / 2, team.selectable() ? 0xFFFFFFFF : 0xFF9797A1);
     }
 
-    private void renderTerritoryArt(Object graphics, String iconPath, int x, int y, int w, int h,
-                                    boolean isHovered, int accentColor) {
+    private void renderTerritoryArt(GuiGraphicsExtractor g, String iconPath, int x, int y,
+                                    int w, int h, boolean isHovered, int accentColor) {
         if (iconPath != null && !iconPath.isBlank()) {
             try {
                 String cleanPath = iconPath.trim();
@@ -195,36 +176,37 @@ public final class SpawnSelectorScreen extends Screen {
                         : Identifier.fromNamespaceAndPath("spawnselector",
                             cleanPath.startsWith("textures/") ? cleanPath : "textures/gui/spawn_selector/" + cleanPath);
 
-                Boolean valid = ICON_VALIDITY.get(cleanPath);
-                if (valid == null) {
-                    try (var stream = Minecraft.getInstance().getResourceManager()
-                            .getResource(id).orElseThrow().open()) {
-                        valid = ImageIO.read(stream) != null;
-                    } catch (Exception e) {
-                        valid = false;
-                    }
-                    ICON_VALIDITY.put(cleanPath, valid);
-                }
+                int[] size = IMAGE_SIZES.computeIfAbsent(id, key -> {
+                    try {
+                        var resource = Minecraft.getInstance().getResourceManager().getResource(key);
+                        if (resource.isPresent()) {
+                            try (var stream = resource.get().open()) {
+                                var image = ImageIO.read(stream);
+                                if (image != null) return new int[]{image.getWidth(), image.getHeight()};
+                            }
+                        }
+                    } catch (Exception ignored) { }
+                    return new int[]{0, 0};
+                });
 
-                if (valid) {
-                    RenderPipelines.COLOR_TEXTURE.get();
-                    GuiGraphicsExtractor.blit(graphics, id, x, y, 0.0f, 0.0f, w, h, w, h);
-                    drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF344258);
+                if (size[0] > 0 && size[1] > 0) {
+                    g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0.0F, 0.0F,
+                            w, h, size[0], size[1], size[0], size[1]);
+                    drawOutline(g, x, y, w, h, isHovered ? accentColor : 0xFF344258);
                     return;
                 }
-            } catch (Exception ignored) {
-                // Use the themed placeholder below if a custom image cannot be loaded.
+            } catch (RuntimeException ignored) {
+                // Use the themed placeholder if the image is not available.
             }
         }
 
-        GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + h,
-                isHovered ? 0xFF1C2A3D : 0xFF121B2A);
-        GuiGraphicsExtractor.drawCenteredString(graphics, this.font, "§8ПРЕВЬЮ ТЕРРИТОРИИ",
-                x + w / 2, y + h / 2 - 4, accentColor);
-        drawOutline(graphics, x, y, w, h, isHovered ? accentColor : 0xFF344258);
+        g.fill(x, y, x + w, y + h, isHovered ? 0xFF1C2A3D : 0xFF121B2A);
+        drawCentered(g, "§8ПРЕВЬЮ ТЕРРИТОРИИ", x + w / 2, y + h / 2 - 4, accentColor);
+        drawOutline(g, x, y, w, h, isHovered ? accentColor : 0xFF344258);
     }
 
-    private void drawMultilineText(Object graphics, String text, int x, int y, int maxW, int maxH, int color) {
+    private void drawMultilineText(GuiGraphicsExtractor g, String text, int x, int y,
+                                   int maxW, int maxH, int color) {
         if (text == null || text.isBlank() || maxH < this.font.lineHeight) return;
         String[] words = text.trim().split("\\s+");
         List<String> lines = new ArrayList<>();
@@ -243,8 +225,7 @@ public final class SpawnSelectorScreen extends Screen {
 
         int lineHeight = compactLayout ? 9 : 10;
         int maxLines = Math.max(1, maxH / lineHeight);
-        int drawLines = Math.min(lines.size(), maxLines);
-        for (int i = 0; i < drawLines; i++) {
+        for (int i = 0; i < Math.min(lines.size(), maxLines); i++) {
             String value = lines.get(i);
             if (i == maxLines - 1 && lines.size() > maxLines) {
                 while (!value.isEmpty() && this.font.width(value + "…") > maxW) {
@@ -252,7 +233,7 @@ public final class SpawnSelectorScreen extends Screen {
                 }
                 value += "…";
             }
-            GuiGraphicsExtractor.drawString(graphics, this.font, value, x, y + i * lineHeight, color, false);
+            g.text(this.font, value, x, y + i * lineHeight, color, true);
         }
     }
 
@@ -266,14 +247,16 @@ public final class SpawnSelectorScreen extends Screen {
         return shortened.isEmpty() ? "" : shortened + "…";
     }
 
-    private static String text(Map<String, String> values, String key, String fallback) {
-        if (values == null) return fallback;
-        String value = values.get(key);
-        return value == null || value.isBlank() ? fallback : value;
+    private void drawCentered(GuiGraphicsExtractor g, String value, int centerX, int y, int color) {
+        g.text(this.font, value, centerX - this.font.width(value) / 2, y, color, true);
     }
 
-    private String getText(String key, String fallback) {
-        return text(this.menuText, key, fallback);
+    private void drawOutline(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
+        if (w <= 0 || h <= 0) return;
+        g.fill(x, y, x + w, y + 1, color);
+        g.fill(x, y + h - 1, x + w, y + h, color);
+        g.fill(x, y + 1, x + 1, y + h - 1, color);
+        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
     public void updateTeams(JsonArray updates) {
@@ -293,42 +276,53 @@ public final class SpawnSelectorScreen extends Screen {
                 this.teams.set(i, new SpawnTeamView(old.id(), old.name(), old.description(),
                         old.buttonIcon(), players, max, label, available));
             } catch (RuntimeException ignored) {
-                // Ignore a malformed individual update instead of closing the selector.
+                // Ignore one malformed status entry instead of closing the selector.
             }
         }
     }
 
-    private void drawOutline(Object graphics, int x, int y, int w, int h, int color) {
-        if (w <= 0 || h <= 0) return;
-        GuiGraphicsExtractor.fill(graphics, x, y, x + w, y + 1, color);
-        GuiGraphicsExtractor.fill(graphics, x, y + h - 1, x + w, y + h, color);
-        GuiGraphicsExtractor.fill(graphics, x, y + 1, x + 1, y + h - 1, color);
-        GuiGraphicsExtractor.fill(graphics, x + w - 1, y + 1, x + w, y + h - 1, color);
+    private static boolean inside(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    private void playUiSound(float pitch, float volume) {
+        Minecraft.getInstance().getSoundManager().play(
+                SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), pitch, volume));
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0 && this.hovered >= 0 && this.hovered < this.teams.size()) {
-            SpawnTeamView team = this.teams.get(this.hovered);
-            if (team.selectable()) {
-                playClickSound();
-                ClientPlayNetworking.send(new SpawnPayloads.Choose(team.id()));
-                return true;
-            } else {
-                playClickSound();
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() != 0) return super.mouseClicked(event, doubleClick);
+
+        for (int i = 0; i < cardCount; i++) {
+            int x = cardsX + i * (cardWidth + cardGap);
+            if (!inside(mouseX, mouseY, x, cardsY, cardWidth, cardHeight)) continue;
+            SpawnTeamView team = this.teams.get(i);
+            if (!team.selectable()) {
+                playUiSound(1.0F, 0.45F);
                 return true;
             }
+            playUiSound(0.9F, 0.9F);
+            ClientPlayNetworking.send(new SpawnPayloads.Choose(team.id()));
+            return true;
         }
         return super.mouseClicked(event, doubleClick);
     }
 
-    private void playClickSound() {
-        Minecraft.getInstance().getSoundManager()
-                .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return false;
     }
 
-    private void playHoverSound() {
-        Minecraft.getInstance().getSoundManager()
-                .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 0.35F, 1.6F));
+    @Override
+    public void onClose() {
+        // A first-time player must choose one of the three territories explicitly.
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
     }
 }
