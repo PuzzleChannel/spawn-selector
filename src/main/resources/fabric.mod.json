@@ -3,7 +3,7 @@
   "id": "spawnselector",
   "version": "${version}",
   "name": "Spawn Selector",
-  "description": "Visual four-option spawn selector with safe land spawn and team balancing",
+  "description": "Three-territory spawn selector with balanced team selection and safe spawn placement",
   "authors": ["PuzzleChannel"],
   "contact": {},
   "license": "MIT",
