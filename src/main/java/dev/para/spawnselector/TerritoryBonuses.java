@@ -27,7 +27,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.scores.Team;
 
 import java.util.HashMap;
@@ -110,14 +109,14 @@ public final class TerritoryBonuses {
     }
 
     public static boolean isOre(BlockState state) {
-        return state.is(BlockTags.COAL_ORES)
-                || state.is(BlockTags.COPPER_ORES)
-                || state.is(BlockTags.DIAMOND_ORES)
-                || state.is(BlockTags.EMERALD_ORES)
-                || state.is(BlockTags.GOLD_ORES)
-                || state.is(BlockTags.IRON_ORES)
-                || state.is(BlockTags.LAPIS_ORES)
-                || state.is(BlockTags.REDSTONE_ORES)
+        return state.is(Blocks.COAL_ORE) || state.is(Blocks.DEEPSLATE_COAL_ORE)
+                || state.is(Blocks.COPPER_ORE) || state.is(Blocks.DEEPSLATE_COPPER_ORE)
+                || state.is(Blocks.DIAMOND_ORE) || state.is(Blocks.DEEPSLATE_DIAMOND_ORE)
+                || state.is(Blocks.EMERALD_ORE) || state.is(Blocks.DEEPSLATE_EMERALD_ORE)
+                || state.is(Blocks.GOLD_ORE) || state.is(Blocks.DEEPSLATE_GOLD_ORE)
+                || state.is(Blocks.IRON_ORE) || state.is(Blocks.DEEPSLATE_IRON_ORE)
+                || state.is(Blocks.LAPIS_ORE) || state.is(Blocks.DEEPSLATE_LAPIS_ORE)
+                || state.is(Blocks.REDSTONE_ORE) || state.is(Blocks.DEEPSLATE_REDSTONE_ORE)
                 || state.is(Blocks.NETHER_QUARTZ_ORE)
                 || state.is(Blocks.NETHER_GOLD_ORE)
                 || state.is(Blocks.ANCIENT_DEBRIS);
