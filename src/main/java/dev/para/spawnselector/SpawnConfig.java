@@ -196,7 +196,9 @@ public class SpawnConfig {
         public String windowTitle = "Выбор территории";
         public String headerTitle = "ВЫБОР ТЕРРИТОРИИ";
         public String headerSubtitle = "Выберите стартовую территорию своей команды";
-        public String chooseButton = "Выбрать";
+        public String chooseButton = "ВЫБРАТЬ ТЕРРИТОРИЮ";
+        public String footerHint = "Выбор закрепит территорию и назначит соответствующую команду";
+        public String previewPlaceholder = "ПРЕВЬЮ ТЕРРИТОРИИ";
         public String emptyPreviewTitle = "Выберите вариант";
         public String emptyPreviewSubtitle = "чтобы увидеть описание";
         public String loading = "Загрузка…";
