@@ -29,9 +29,6 @@ public final class SpawnMenuHandler {
     // Their selector is opened only after EasyAuth reports successful authentication.
     private static final Set<UUID> PENDING_AUTH_MENUS = new HashSet<>();
     private static boolean authBridgeWarningLogged;
-    private static final int FREE_SPAWN_CENTER_X = -16_000;
-    private static final int FREE_SPAWN_CENTER_Z = -6_000;
-    private static final int FREE_SPAWN_SPREAD = 10_000;
     private static long lastMenuRefreshTick = -40;
 
     private SpawnMenuHandler() {}
@@ -173,26 +170,6 @@ public final class SpawnMenuHandler {
         // Spawn selection always targets the Overworld, regardless of the dimension
         // in which a returning player happened to join.
         ServerLevel level = server.overworld();
-
-        // Free survival searches for a genuinely safe surface spot inside its dedicated region.
-        if (spawnIndex == 3) {
-            BlockPos destination = findSafeFreeSpawn(level);
-            if (destination == null) {
-                reject(player, SpawnConfig.menuText.errorFreeSpawn);
-                return;
-            }
-            if (!teleportAndSetRespawn(player, level, destination, 0.0f)) {
-                reject(player, SpawnConfig.menuText.errorTeleport);
-                return;
-            }
-            // Free survival must reset any territory LuckPerms parent (e.g. africa)
-            // back to the default group instead of leaving the previous group assigned.
-            assignLuckPermsGroup(player, "default");
-            OPEN_MENUS.remove(player.getUUID());
-            SpawnData.markSpawnSelected(player);
-            ServerPlayNetworking.send(player, new SpawnPayloads.CloseMenu());
-            return;
-        }
 
         if (spawnIndex < 0 || spawnIndex >= 3 || spawnIndex >= SpawnConfig.spawnPoints.size()) {
             reject(player, SpawnConfig.menuText.errorInvalidChoice);
@@ -367,53 +344,6 @@ public final class SpawnMenuHandler {
         } catch (RuntimeException e) {
             SpawnSelectorMod.LOGGER.warn("Ошибка проверки поверхности X={}, Z={}.", x, z, e);
         }
-        return null;
-    }
-
-    private static BlockPos findSafeFreeSpawn(ServerLevel level) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        int minY = level.getMinY() + 1;
-        int maxY = level.getMaxY() - 2;
-
-        // Do not trust heightmap values: custom Earth world generators may return
-        // invalid heights. Generate/load each candidate chunk, then inspect real blocks.
-        for (int attempt = 0; attempt < 32; attempt++) {
-            int x = random.nextInt(FREE_SPAWN_CENTER_X - FREE_SPAWN_SPREAD,
-                    FREE_SPAWN_CENTER_X + FREE_SPAWN_SPREAD + 1);
-            int z = random.nextInt(FREE_SPAWN_CENTER_Z - FREE_SPAWN_SPREAD,
-                    FREE_SPAWN_CENTER_Z + FREE_SPAWN_SPREAD + 1);
-            try {
-                level.getChunk(x >> 4, z >> 4);
-                for (int y = maxY; y >= minY; y--) {
-                    BlockPos feet = new BlockPos(x, y, z);
-                    BlockPos head = feet.above();
-                    BlockPos floor = feet.below();
-                    var feetState = level.getBlockState(feet);
-                    var headState = level.getBlockState(head);
-                    var floorState = level.getBlockState(floor);
-
-                    if (y < 0) continue;
-                    if (!feetState.getFluidState().isEmpty() || !headState.getFluidState().isEmpty()) continue;
-                    if (!feetState.getCollisionShape(level, feet).isEmpty()
-                            || !headState.getCollisionShape(level, head).isEmpty()) continue;
-                    if (!floorState.getFluidState().isEmpty()
-                            || floorState.getCollisionShape(level, floor).isEmpty()) continue;
-                    // Reject caves, overhangs and underground chambers: the selected position
-                    // must be at non-negative altitude with an unobstructed view of the sky.
-                    if (!level.canSeeSky(feet)) continue;
-
-                    // Found a clear, dry surface position with open sky directly above it.
-                    SpawnSelectorMod.LOGGER.info("Безопасный свободный спавн найден: X={}, Y={}, Z={} (попытка {}).",
-                            x, y, z, attempt + 1);
-                    return feet;
-                }
-            } catch (RuntimeException e) {
-                SpawnSelectorMod.LOGGER.warn("Ошибка проверки свободного спавна X={}, Z={} (попытка {}).",
-                        x, z, attempt + 1, e);
-            }
-        }
-        SpawnSelectorMod.LOGGER.warn("Не найден безопасный свободный спавн после 32 попыток в области X={}±{}, Z={}±{}.",
-                FREE_SPAWN_CENTER_X, FREE_SPAWN_SPREAD, FREE_SPAWN_CENTER_Z, FREE_SPAWN_SPREAD);
         return null;
     }
 
