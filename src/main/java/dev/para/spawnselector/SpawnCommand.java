@@ -44,7 +44,13 @@ public class SpawnCommand {
                         context.getSource().sendSuccess(() -> Component.literal(index + ". " + p.name + " — " +
                                 (int)p.x + " " + (int)p.y + " " + (int)p.z + " (команда: " + p.team + ")"), false);
                     }
-                    context.getSource().sendSuccess(() -> Component.literal("4. Случайный выбор спавна — X и Z: от -4 000 до 4 000"), false);
+                    return 1;
+                }))
+                .then(Commands.literal("reload").executes(context -> {
+                    SpawnConfig.load();
+                    SpawnMenuHandler.refreshOpenMenus(context.getSource().getServer());
+                    context.getSource().sendSuccess(() -> Component.literal(
+                            "Конфигурация выбора территории перезагружена; текст и описания обновлены у игроков с открытым меню."), true);
                     return 1;
                 }))
                 .then(Commands.literal("teams").executes(context -> {
