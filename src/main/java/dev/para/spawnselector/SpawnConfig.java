@@ -46,7 +46,12 @@ public class SpawnConfig {
             boolean menuTextAdded = !root.has("menuText") || root.get("menuText").isJsonNull();
             boolean menuTextSchemaUpdated = menuTextAdded
                     || !root.getAsJsonObject("menuText").has("footerHint")
-                    || !root.getAsJsonObject("menuText").has("previewPlaceholder");
+                    || !root.getAsJsonObject("menuText").has("previewPlaceholder")
+                    || !root.getAsJsonObject("menuText").has("confirmTitle")
+                    || !root.getAsJsonObject("menuText").has("confirmDescription")
+                    || !root.getAsJsonObject("menuText").has("confirmWarning")
+                    || !root.getAsJsonObject("menuText").has("confirmButton")
+                    || !root.getAsJsonObject("menuText").has("backButton");
             menuText = menuTextAdded || data.menuText == null ? new MenuText() : data.menuText;
             boolean menuTextNormalized = normalizeMenuText(menuText, new MenuText());
             // Migrate an old saved subtitle so the removed free-survival option is not mentioned.
@@ -203,6 +208,11 @@ public class SpawnConfig {
         public String chooseButton = "ВЫБРАТЬ ТЕРРИТОРИЮ";
         public String footerHint = "Выбор закрепит территорию и назначит соответствующую команду";
         public String previewPlaceholder = "ПРЕВЬЮ ТЕРРИТОРИИ";
+        public String confirmTitle = "ПОДТВЕРЖДЕНИЕ ВЫБОРА";
+        public String confirmDescription = "Ты выбрал территорию «{name}». Подтвердить этот выбор?";
+        public String confirmWarning = "После подтверждения изменить выбор можно будет только через администрацию.";
+        public String confirmButton = "ПОДТВЕРДИТЬ";
+        public String backButton = "НАЗАД";
         public String players = "{count} игроков";
         public String playersLimited = "{count}/{max} игроков";
         public String unavailable = "Недоступно";
