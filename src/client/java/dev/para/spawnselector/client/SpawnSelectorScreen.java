@@ -34,6 +34,11 @@ public final class SpawnSelectorScreen extends Screen {
     private int cardHeight;
     private int cardGap;
     private int cardCount;
+    private int pendingSelection = -1;
+    private boolean submittingSelection;
+    private int confirmModalX, confirmModalY, confirmModalWidth, confirmModalHeight;
+    private int confirmButtonX, confirmButtonY, confirmButtonWidth, confirmButtonHeight;
+    private int backButtonX, backButtonY, backButtonWidth, backButtonHeight;
 
     private static final Map<Identifier, int[]> IMAGE_SIZES = new ConcurrentHashMap<>();
     private static final int[] ACCENT = {0xFF3B82F6, 0xFFEF4444, 0xFFF59E0B};
@@ -108,6 +113,81 @@ public final class SpawnSelectorScreen extends Screen {
         lastHovered = hovered;
         drawCentered(g, getText("footerHint", "Выбор закрепит территорию и назначит соответствующую команду"),
                 width / 2, height - 14, 0xFF64748B);
+
+        renderConfirmation(g, mouseX, mouseY);
+    }
+
+    private void renderConfirmation(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+        if (pendingSelection < 0 || pendingSelection >= this.teams.size()) return;
+
+        SpawnTeamView team = this.teams.get(pendingSelection);
+        int accent = ACCENT[pendingSelection % ACCENT.length];
+        int light = ACCENT_LIGHT[pendingSelection % ACCENT_LIGHT.length];
+
+        // Darken the whole screen so the choice must be dealt with in this dialog.
+        g.fill(0, 0, this.width, this.height, 0xC8080B12);
+
+        confirmModalWidth = Math.max(180, Math.min(440, this.width - 24));
+        confirmModalHeight = Math.min(compactLayout ? 198 : 208, Math.max(160, this.height - 20));
+        confirmModalX = (this.width - confirmModalWidth) / 2;
+        confirmModalY = (this.height - confirmModalHeight) / 2;
+
+        g.fill(confirmModalX, confirmModalY,
+                confirmModalX + confirmModalWidth, confirmModalY + confirmModalHeight, 0xFF101827);
+        drawOutline(g, confirmModalX, confirmModalY, confirmModalWidth, confirmModalHeight, accent);
+        g.fill(confirmModalX + 1, confirmModalY + 1,
+                confirmModalX + confirmModalWidth - 1, confirmModalY + 5, light);
+
+        drawCentered(g, "§l" + getText("confirmTitle", "ПОДТВЕРЖДЕНИЕ ВЫБОРА"),
+                this.width / 2, confirmModalY + 16, 0xFFF1F5F9);
+        drawCentered(g, "§l" + fitText(team.name(), confirmModalWidth - 36),
+                this.width / 2, confirmModalY + 42, light);
+
+        String prompt = getText("confirmDescription",
+                "Ты выбрал территорию «{name}». Подтвердить этот выбор?")
+                .replace("{name}", team.name());
+        drawMultilineText(g, prompt, confirmModalX + 18, confirmModalY + 61,
+                confirmModalWidth - 36, 23, 0xFFE2E8F0);
+
+        int descriptionY = confirmModalY + 87;
+        int descriptionHeight = Math.max(0, Math.min(34, confirmModalY + confirmModalHeight - 72 - descriptionY));
+        drawMultilineText(g, team.description(), confirmModalX + 18, descriptionY,
+                confirmModalWidth - 36, descriptionHeight, 0xFFB8C4D6);
+
+        String warning = getText("confirmWarning",
+                "После подтверждения изменить выбор можно будет только через администрацию.");
+        drawMultilineText(g, warning, confirmModalX + 18, confirmModalY + confirmModalHeight - 61,
+                confirmModalWidth - 36, 22, 0xFFFDE68A);
+
+        confirmButtonHeight = 25;
+        backButtonHeight = 25;
+        confirmButtonWidth = Math.min(154, Math.max(94, (confirmModalWidth - 42) / 2));
+        backButtonWidth = Math.min(104, Math.max(76, (confirmModalWidth - 42) / 2));
+        int buttonGap = 10;
+        int groupWidth = backButtonWidth + buttonGap + confirmButtonWidth;
+        int groupLeft = confirmModalX + (confirmModalWidth - groupWidth) / 2;
+        backButtonX = groupLeft;
+        backButtonY = confirmModalY + confirmModalHeight - confirmButtonHeight - 12;
+        backButtonHeight = confirmButtonHeight;
+        confirmButtonX = backButtonX + backButtonWidth + buttonGap;
+        confirmButtonY = backButtonY;
+
+        boolean backHovered = inside(mouseX, mouseY, backButtonX, backButtonY, backButtonWidth, backButtonHeight);
+        boolean confirmHovered = inside(mouseX, mouseY, confirmButtonX, confirmButtonY,
+                confirmButtonWidth, confirmButtonHeight);
+
+        g.fill(backButtonX, backButtonY, backButtonX + backButtonWidth, backButtonY + backButtonHeight,
+                backHovered ? 0xFF2A4161 : 0xFF1C2C43);
+        drawOutline(g, backButtonX, backButtonY, backButtonWidth, backButtonHeight, 0xFF344258);
+        drawCentered(g, fitText(getText("backButton", "НАЗАД"), backButtonWidth - 10),
+                backButtonX + backButtonWidth / 2, backButtonY + 8, 0xFFF1F5F9);
+
+        int confirmBackground = confirmHovered ? light : accent;
+        g.fill(confirmButtonX, confirmButtonY, confirmButtonX + confirmButtonWidth,
+                confirmButtonY + confirmButtonHeight, confirmBackground);
+        drawOutline(g, confirmButtonX, confirmButtonY, confirmButtonWidth, confirmButtonHeight, light);
+        drawCentered(g, "§l" + fitText(getText("confirmButton", "ПОДТВЕРДИТЬ"), confirmButtonWidth - 10),
+                confirmButtonX + confirmButtonWidth / 2, confirmButtonY + 8, 0xFFFFFFFF);
     }
 
     private void renderTerritoryCard(GuiGraphicsExtractor g, int x, int y, int w, int h,
@@ -289,6 +369,40 @@ public final class SpawnSelectorScreen extends Screen {
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x();
         double mouseY = event.y();
+
+        if (submittingSelection) return true;
+        if (pendingSelection >= 0) {
+            // While the confirmation is open, never let clicks pass through to the territory cards.
+            if (event.button() != 0) return true;
+
+            if (inside(mouseX, mouseY, backButtonX, backButtonY, backButtonWidth, backButtonHeight)) {
+                playUiSound(1.0F, 0.7F);
+                pendingSelection = -1;
+                message = "";
+                return true;
+            }
+
+            if (inside(mouseX, mouseY, confirmButtonX, confirmButtonY, confirmButtonWidth, confirmButtonHeight)) {
+                SpawnTeamView team = pendingSelection < teams.size() ? teams.get(pendingSelection) : null;
+                if (team == null || !team.selectable()) {
+                    playUiSound(1.0F, 0.45F);
+                    message = getText("unavailableMessage", "Эта территория сейчас недоступна. Выберите другую.");
+                    pendingSelection = -1;
+                    return true;
+                }
+
+                playUiSound(0.9F, 0.9F);
+                submittingSelection = true;
+                int teamId = team.id();
+                pendingSelection = -1;
+                ClientPlayNetworking.send(new SpawnPayloads.Choose(teamId));
+                return true;
+            }
+
+            // Clicks outside the modal don't cancel or confirm; this avoids accidental choices.
+            return true;
+        }
+
         if (event.button() != 0) return super.mouseClicked(event, doubleClick);
 
         for (int i = 0; i < cardCount; i++) {
@@ -300,8 +414,9 @@ public final class SpawnSelectorScreen extends Screen {
                 this.message = getText("unavailableMessage", "Эта территория сейчас недоступна. Выберите другую.");
                 return true;
             }
-            playUiSound(0.9F, 0.9F);
-            ClientPlayNetworking.send(new SpawnPayloads.Choose(team.id()));
+            playUiSound(0.9F, 0.7F);
+            this.message = "";
+            this.pendingSelection = i;
             return true;
         }
         return super.mouseClicked(event, doubleClick);
