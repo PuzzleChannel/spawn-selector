@@ -93,6 +93,18 @@ public final class SpawnMenuHandler {
         }
     }
 
+    /** Re-sends current server-owned names, descriptions and menu text to active selectors. */
+    public static void refreshOpenMenus(MinecraftServer server) {
+        for (UUID id : Set.copyOf(OPEN_MENUS)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player == null || player.isRemoved() || SpawnData.hasSelectedSpawn(player)) {
+                OPEN_MENUS.remove(id);
+                continue;
+            }
+            sendMenu(player, "");
+        }
+    }
+
     private static void sendTeamsUpdate(ServerPlayer player) {
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         Scoreboard scoreboard = server.getScoreboard();
