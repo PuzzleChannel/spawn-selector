@@ -3,9 +3,9 @@ package dev.para.spawnselector.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.para.spawnselector.network.SpawnPayloads;
+import dev.para.spawnselector.TerritoryBonuses;\nimport dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;\nimport net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -78,6 +78,11 @@ public final class SpawnSelectorClient implements ClientModInitializer {
                 // Ignore a malformed status update without interrupting the game.
             }
         });
+
+        ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.TerritoryData.TYPE, (payload, context) ->
+                context.client().execute(() -> TerritoryBonuses.updateClientCapitals(payload.json())));
+
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> TerritoryBonuses.clearClientCapitals());
 
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE, (payload, context) ->
                 context.client().execute(() -> {
