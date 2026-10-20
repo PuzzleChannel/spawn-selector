@@ -191,18 +191,14 @@ public class SpawnConfig {
     public static class MenuText {
         public String windowTitle = "Выбор территории";
         public String headerTitle = "ВЫБОР ТЕРРИТОРИИ";
-        public String headerSubtitle = "Выберите территорию или свободное выживание";
+        public String headerSubtitle = "Выберите стартовую территорию своей команды";
         public String chooseButton = "Выбрать";
-        public String freeName = "Свободное выживание";
-        public String freeSubtitle = "Случайный выбор спавна";
-        public String freeDescription = "Случайное место появления вдали от команд. Начните выживание самостоятельно и стройте базу где захотите.";
         public String emptyPreviewTitle = "Выберите вариант";
         public String emptyPreviewSubtitle = "чтобы увидеть описание";
         public String loading = "Загрузка…";
         public String confirmTitle = "ПОДТВЕРЖДЕНИЕ ВЫБОРА";
         public String confirmButton = "Подтвердить";
         public String backButton = "Назад";
-        public String confirmFreeDescription = "Вы появитесь в случайном месте вдали от территорий. Выбор нельзя будет изменить самостоятельно.";
         public String players = "{count} игроков";
         public String playersLimited = "{count}/{max} игроков";
         public String unavailable = "Недоступно";
@@ -214,7 +210,6 @@ public class SpawnConfig {
         public String styleConfirmButton = "#426D45";
         public String styleBackButton = "#6B4141";
         public String errorLoad = "Не удалось загрузить список территорий.";
-        public String errorFreeSpawn = "Не удалось найти безопасное место в зоне свободного выживания. Попробуйте ещё раз.";
         public String errorTeleport = "Не удалось установить точку появления. Попробуйте ещё раз.";
         public String errorInvalidChoice = "Этот вариант выбора недоступен.";
         public String errorTeamUnavailable = "Эта команда временно недоступна. Сообщите администрации.";
