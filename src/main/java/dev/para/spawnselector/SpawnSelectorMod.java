@@ -24,6 +24,7 @@ public class SpawnSelectorMod implements ModInitializer {
                         SpawnMenuHandler.handleSpawnSelection(context.player(), payload.index())));
         SpawnConfig.load();
         SpawnData.load();
+        TerritoryBonuses.register();
         SpawnMenuHandler.register();
         SpawnCommand.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> server.execute(() -> ensureTeamsExist(server)));
