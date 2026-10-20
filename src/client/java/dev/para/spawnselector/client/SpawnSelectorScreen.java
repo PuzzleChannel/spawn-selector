@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class SpawnSelectorScreen extends Screen {
     private List<SpawnTeamView> teams;
     private final Map<String, String> menuText;
-    private final String message;
+    private String message;
     private boolean compactLayout;
     private int hovered = -1;
     private int lastHovered = -1;
@@ -106,7 +106,7 @@ public final class SpawnSelectorScreen extends Screen {
 
         if (hovered != lastHovered && hovered >= 0) playUiSound(1.45F, 0.18F);
         lastHovered = hovered;
-        drawCentered(g, "§8Выбор закрепит территорию и назначит соответствующую команду",
+        drawCentered(g, getText("footerHint", "Выбор закрепит территорию и назначит соответствующую команду"),
                 width / 2, height - 14, 0xFF64748B);
     }
 
@@ -127,12 +127,6 @@ public final class SpawnSelectorScreen extends Screen {
         int artH = Math.min(compactLayout ? 104 : 130, Math.max(54, (contentW * 529) / 940));
         int artY = y + pad + 3;
         renderTerritoryArt(g, team.buttonIcon(), contentX, artY, contentW, artH, isHovered, accent);
-
-        int badgeX = contentX + 7;
-        int badgeY = artY + 7;
-        g.fill(badgeX, badgeY, badgeX + 31, badgeY + 17, 0xCC080B12);
-        drawOutline(g, badgeX, badgeY, 31, 17, 0x66FFFFFF);
-        drawCentered(g, String.format("%02d", index + 1), badgeX + 15, badgeY + 4, light);
 
         int nameY = artY + artH + (compactLayout ? 7 : 10);
         String displayName = fitText(team.name(), contentW - 8);
@@ -201,7 +195,8 @@ public final class SpawnSelectorScreen extends Screen {
         }
 
         g.fill(x, y, x + w, y + h, isHovered ? 0xFF1C2A3D : 0xFF121B2A);
-        drawCentered(g, "§8ПРЕВЬЮ ТЕРРИТОРИИ", x + w / 2, y + h / 2 - 4, accentColor);
+        drawCentered(g, getText("previewPlaceholder", "ПРЕВЬЮ ТЕРРИТОРИИ"),
+                x + w / 2, y + h / 2 - 4, accentColor);
         drawOutline(g, x, y, w, h, isHovered ? accentColor : 0xFF344258);
     }
 
@@ -302,6 +297,7 @@ public final class SpawnSelectorScreen extends Screen {
             SpawnTeamView team = this.teams.get(i);
             if (!team.selectable()) {
                 playUiSound(1.0F, 0.45F);
+                this.message = getText("unavailableMessage", "Эта территория сейчас недоступна. Выберите другую.");
                 return true;
             }
             playUiSound(0.9F, 0.9F);
