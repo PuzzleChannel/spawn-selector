@@ -3,9 +3,11 @@ package dev.para.spawnselector.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.para.spawnselector.TerritoryBonuses;\nimport dev.para.spawnselector.network.SpawnPayloads;
+import dev.para.spawnselector.TerritoryBonuses;
+import dev.para.spawnselector.network.SpawnPayloads;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;\nimport net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
