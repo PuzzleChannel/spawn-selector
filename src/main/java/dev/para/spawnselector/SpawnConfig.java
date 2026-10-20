@@ -46,6 +46,10 @@ public class SpawnConfig {
             boolean menuTextAdded = !root.has("menuText") || root.get("menuText").isJsonNull();
             menuText = menuTextAdded || data.menuText == null ? new MenuText() : data.menuText;
             boolean menuTextNormalized = normalizeMenuText(menuText, new MenuText());
+            // Migrate an old saved subtitle so the removed free-survival option is not mentioned.
+            boolean obsoleteFreeText = menuText.headerSubtitle != null
+                    && menuText.headerSubtitle.toLowerCase(java.util.Locale.ROOT).contains("свободное выживание");
+            if (obsoleteFreeText) menuText.headerSubtitle = new MenuText().headerSubtitle;
             // Update only the previous built-in descriptions; preserve any server-owner edits.
             boolean descriptionsUpdated = false;
             boolean teamIdsUpdated = false;
@@ -71,7 +75,7 @@ public class SpawnConfig {
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
-            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded || menuTextNormalized) save();
+            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded || menuTextNormalized || obsoleteFreeText) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
