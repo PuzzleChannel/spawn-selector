@@ -32,6 +32,7 @@ public class SpawnCommand {
                             SpawnConfig.SpawnPoint spawn = SpawnConfig.spawnPoints.get(index);
                             spawn.x = pos.getX(); spawn.y = pos.getY(); spawn.z = pos.getZ(); spawn.yaw = player.getYRot();
                             SpawnConfig.save();
+                            TerritoryBonuses.syncAll(context.getSource().getServer());
                             context.getSource().sendSuccess(() -> Component.literal("Точка «" + spawn.name + "» установлена: " +
                                     pos.getX() + " " + pos.getY() + " " + pos.getZ()), true);
                             return 1;
@@ -49,6 +50,7 @@ public class SpawnCommand {
                 .then(Commands.literal("reload").executes(context -> {
                     SpawnConfig.load();
                     SpawnMenuHandler.refreshOpenMenus(context.getSource().getServer());
+                    TerritoryBonuses.syncAll(context.getSource().getServer());
                     context.getSource().sendSuccess(() -> Component.literal(
                             "Конфигурация выбора территории перезагружена; текст и описания обновлены у игроков с открытым меню."), true);
                     return 1;
