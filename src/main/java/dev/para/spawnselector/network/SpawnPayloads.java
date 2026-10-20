@@ -26,6 +26,12 @@ public final class SpawnPayloads {
                 StreamCodec.composite(ByteBufCodecs.VAR_INT, Choose::index, Choose::new);
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
+    public record TerritoryData(String json) implements CustomPacketPayload {
+        public static final Type<TerritoryData> TYPE = new Type<>(Identifier.fromNamespaceAndPath("spawnselector", "territory_data"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, TerritoryData> CODEC =
+                StreamCodec.composite(ByteBufCodecs.STRING_UTF8, TerritoryData::json, TerritoryData::new);
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
     public record CloseMenu() implements CustomPacketPayload {
         public static final Type<CloseMenu> TYPE = new Type<>(Identifier.fromNamespaceAndPath("spawnselector", "close_menu"));
         public static final StreamCodec<RegistryFriendlyByteBuf, CloseMenu> CODEC = StreamCodec.unit(new CloseMenu());
