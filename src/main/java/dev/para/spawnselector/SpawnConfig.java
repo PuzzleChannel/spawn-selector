@@ -44,6 +44,9 @@ public class SpawnConfig {
             validate(data);
             spawnPoints = new ArrayList<>(data.spawnPoints);
             boolean menuTextAdded = !root.has("menuText") || root.get("menuText").isJsonNull();
+            boolean menuTextSchemaUpdated = menuTextAdded
+                    || !root.getAsJsonObject("menuText").has("footerHint")
+                    || !root.getAsJsonObject("menuText").has("previewPlaceholder");
             menuText = menuTextAdded || data.menuText == null ? new MenuText() : data.menuText;
             boolean menuTextNormalized = normalizeMenuText(menuText, new MenuText());
             // Migrate an old saved subtitle so the removed free-survival option is not mentioned.
@@ -75,7 +78,8 @@ public class SpawnConfig {
             radius = data.radius;
             maxPlayersPerTeam = data.maxPlayersPerTeam;
             maxTeamImbalance = data.maxTeamImbalance;
-            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded || menuTextNormalized || obsoleteFreeText) save();
+            if (descriptionsUpdated || teamIdsUpdated || menuTextAdded || menuTextSchemaUpdated
+                    || menuTextNormalized || obsoleteFreeText) save();
         } catch (Exception e) {
             SpawnSelectorMod.LOGGER.error("Не удалось загрузить конфигурацию точек появления. Создаю резервную копию и использую настройки по умолчанию.", e);
             try {
@@ -199,12 +203,6 @@ public class SpawnConfig {
         public String chooseButton = "ВЫБРАТЬ ТЕРРИТОРИЮ";
         public String footerHint = "Выбор закрепит территорию и назначит соответствующую команду";
         public String previewPlaceholder = "ПРЕВЬЮ ТЕРРИТОРИИ";
-        public String emptyPreviewTitle = "Выберите вариант";
-        public String emptyPreviewSubtitle = "чтобы увидеть описание";
-        public String loading = "Загрузка…";
-        public String confirmTitle = "ПОДТВЕРЖДЕНИЕ ВЫБОРА";
-        public String confirmButton = "Подтвердить";
-        public String backButton = "Назад";
         public String players = "{count} игроков";
         public String playersLimited = "{count}/{max} игроков";
         public String unavailable = "Недоступно";
