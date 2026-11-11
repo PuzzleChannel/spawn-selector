@@ -82,9 +82,9 @@ public final class SpawnSelectorClient implements ClientModInitializer {
         });
 
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.TerritoryData.TYPE, (payload, context) ->
-                context.client().execute(() -> TerritoryBonuses.updateClientCapitals(payload.json())));
+                context.client().execute(() -> TerritoryBonuses.updateClientTerritories(payload.json())));
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> TerritoryBonuses.clearClientCapitals());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> TerritoryBonuses.clearClientTerritories());
 
         ClientPlayNetworking.registerGlobalReceiver(SpawnPayloads.CloseMenu.TYPE, (payload, context) ->
                 context.client().execute(() -> {
