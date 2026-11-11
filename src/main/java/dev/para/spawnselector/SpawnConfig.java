@@ -69,14 +69,17 @@ public class SpawnConfig {
                     point.team = newTeamIds[i];
                     teamIdsUpdated = true;
                 }
-                if ("Зелёная долина у леса. Подходит для спокойного старта и сбора ресурсов.".equals(point.description)) {
-                    point.description = "Лес рядом, вокруг есть место для первых построек.";
+                if ("Зелёная долина у леса. Подходит для спокойного старта и сбора ресурсов.".equals(point.description)
+                        || "Лес рядом, вокруг есть место для первых построек.".equals(point.description)) {
+                    point.description = "Зелёные равнины, густые леса и просторные места для городов и ферм. В радиусе 300 блоков от столицы обычные блоки добываются на 20% быстрее, а сделки с жителями дают +2 опыта.";
                     descriptionsUpdated = true;
-                } else if ("Открытая равнина для строительства базы и развития поселения.".equals(point.description)) {
-                    point.description = "Ровное место для базы, полей и поселения.";
+                } else if ("Открытая равнина для строительства базы и развития поселения.".equals(point.description)
+                        || "Ровное место для базы, полей и поселения.".equals(point.description)) {
+                    point.description = "Широкие саванны, сухие равнины и каменистые участки — край экспедиций и добычи. В радиусе 300 блоков от столицы руды добываются на 30% быстрее; шанс получить ещё 1–2 ресурса — 7%.";
                     descriptionsUpdated = true;
-                } else if ("Высокогорная местность с обзором и доступом к каменным ресурсам.".equals(point.description)) {
-                    point.description = "Горы, камень и хороший обзор окрестностей.";
+                } else if ("Высокогорная местность с обзором и доступом к каменным ресурсам.".equals(point.description)
+                        || "Горы, камень и хороший обзор окрестностей.".equals(point.description)) {
+                    point.description = "Горные плато, леса и побережья открывают простор для путешествий. В радиусе 300 блоков от столицы действует Скорость I на суше и Грация дельфина I в воде.";
                     descriptionsUpdated = true;
                 }
             }
@@ -161,9 +164,9 @@ public class SpawnConfig {
 
     private static void createDefault() {
         spawnPoints = new ArrayList<>(List.of(
-            new SpawnPoint("Лесная долина", "Лес рядом, вокруг есть место для первых построек.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "europe", "green"),
-            new SpawnPoint("Равнинное поселение", "Ровное место для базы, полей и поселения.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "africa", "blue"),
-            new SpawnPoint("Горное плато", "Горы, камень и хороший обзор окрестностей.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "avstralia", "gold")
+            new SpawnPoint("Лесная долина", "Зелёные равнины, густые леса и просторные места для городов и ферм. В радиусе 300 блоков от столицы обычные блоки добываются на 20% быстрее, а сделки с жителями дают +2 опыта.", "textures/gui/spawn_selector/forest.png", 0, 100, 0, 0, "europe", "green"),
+            new SpawnPoint("Равнинное поселение", "Широкие саванны, сухие равнины и каменистые участки — край экспедиций и добычи. В радиусе 300 блоков от столицы руды добываются на 30% быстрее; шанс получить ещё 1–2 ресурса — 7%.", "textures/gui/spawn_selector/plains.png", 100, 100, 100, 0, "africa", "blue"),
+            new SpawnPoint("Горное плато", "Горные плато, леса и побережья открывают простор для путешествий. В радиусе 300 блоков от столицы действует Скорость I на суше и Грация дельфина I в воде.", "textures/gui/spawn_selector/mountains.png", -100, 100, 100, 0, "avstralia", "gold")
         ));
         radius = 10;
         maxPlayersPerTeam = 0;
