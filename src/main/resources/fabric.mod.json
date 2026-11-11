@@ -15,6 +15,9 @@
   "mixins": [
     "spawnselector.mixins.json"
   ],
+  "suggests": {
+    "territorymap": "*"
+  },
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": "${minecraft_version}",
