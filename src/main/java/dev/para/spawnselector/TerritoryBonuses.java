@@ -303,7 +303,7 @@ public final class TerritoryBonuses {
     }
 
     /**
-     * Connects to Territory Map war API v1 and refreshes only when its revision changes.
+     * Connects to Territory Map war API v3 (with v1 fallback) and refreshes only when its revision changes.
      * The API is intentionally discovered through Fabric ObjectShare, so Spawn Selector
      * remains loadable without a hard class dependency on Territory Map.
      *
