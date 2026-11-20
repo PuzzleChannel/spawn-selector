@@ -51,9 +51,13 @@ import java.util.concurrent.ThreadLocalRandom;
  * so the bonus follows a chunk automatically after a successful claim or war transfer.
  */
 public final class TerritoryBonuses {
-    private static final String TERRITORY_MAP_REVISION_KEY = "territorymap:war_api_v1:revision";
-    private static final String TERRITORY_MAP_SNAPSHOT_KEY = "territorymap:war_api_v1:snapshot";
-    private static final int TERRITORY_MAP_API_VERSION = 1;
+    private static final String TERRITORY_MAP_V3_REVISION_KEY = "territorymap:war_api_v3:revision";
+    private static final String TERRITORY_MAP_V3_SNAPSHOT_KEY = "territorymap:war_api_v3:snapshot";
+    private static final String TERRITORY_MAP_V1_REVISION_KEY = "territorymap:war_api_v1:revision";
+    private static final String TERRITORY_MAP_V1_SNAPSHOT_KEY = "territorymap:war_api_v1:snapshot";
+    private static final int TERRITORY_MAP_V3_API_VERSION = 3;
+    private static final int TERRITORY_MAP_V1_API_VERSION = 1;
+    private static final int CLIENT_TERRITORY_SNAPSHOT_VERSION = 1;
     private static final int MAX_PACKET_PART_CHARS = 18_000;
 
     private static final float EUROPE_ORDINARY_MINING_MULTIPLIER = 1.20F;
@@ -74,6 +78,7 @@ public final class TerritoryBonuses {
 
     private static LongSupplier revisionSupplier;
     private static Supplier<String> snapshotSupplier;
+    private static int connectedTerritoryMapApiVersion;
     private static long appliedRevision = Long.MIN_VALUE;
     private static MinecraftServer activeServer;
     private static boolean apiWarningLogged;
@@ -219,7 +224,7 @@ public final class TerritoryBonuses {
         UUID id = player.getUUID();
         MobEffectInstance current = player.getEffect(effect);
         if (current == null) {
-            if (player.addEffect(new MobEffectInstance(effect, MOVEMENT_EFFECT_DURATION, 0, true, false, false))) {
+            if (player.addEffect(new MobEffectInstance(effect, MOVEMENT_EFFECT_DURATION, 0, true, false, true))) {
                 trackedPlayers.add(id);
             }
             return;
@@ -227,7 +232,7 @@ public final class TerritoryBonuses {
 
         // Refresh only effects introduced by this feature. Existing stronger potion effects are preserved.
         if (trackedPlayers.contains(id) && current.getAmplifier() == 0 && current.getDuration() <= 4) {
-            player.addEffect(new MobEffectInstance(effect, MOVEMENT_EFFECT_DURATION, 0, true, false, false));
+            player.addEffect(new MobEffectInstance(effect, MOVEMENT_EFFECT_DURATION, 0, true, false, true));
         }
     }
 
@@ -327,8 +332,9 @@ public final class TerritoryBonuses {
         try {
             String sourceJson = snapshotSupplier.get();
             JsonObject root = JsonParser.parseString(sourceJson).getAsJsonObject();
-            if (!root.has("api") || root.get("api").getAsInt() != TERRITORY_MAP_API_VERSION) {
-                throw new IllegalStateException("Unsupported Territory Map war API version");
+            if (!root.has("api") || root.get("api").getAsInt() != connectedTerritoryMapApiVersion) {
+                throw new IllegalStateException("Territory Map API version does not match ObjectShare key "
+                        + connectedTerritoryMapApiVersion);
             }
             long snapshotRevision = root.get("revision").getAsLong();
             if (snapshotRevision != currentRevision) {
@@ -354,18 +360,38 @@ public final class TerritoryBonuses {
             return false;
         }
 
-        Object revision = FabricLoader.getInstance().getObjectShare().get(TERRITORY_MAP_REVISION_KEY);
-        Object snapshot = FabricLoader.getInstance().getObjectShare().get(TERRITORY_MAP_SNAPSHOT_KEY);
-        if (!(revision instanceof LongSupplier revisionFn) || !(snapshot instanceof Supplier<?> snapshotFn)) {
-            logTerritoryApiUnavailableOnce("Territory Map war API v1 не найден; установите Territory Map со сборкой feature/vmwar-territory-api.");
-            return false;
+        var objectShare = FabricLoader.getInstance().getObjectShare();
+        // Territory Map 0.5.12 publishes v3. Prefer it, but keep compatibility
+        // with older deployments that still publish the original v1 contract.
+        Object revisionV3 = objectShare.get(TERRITORY_MAP_V3_REVISION_KEY);
+        Object snapshotV3 = objectShare.get(TERRITORY_MAP_V3_SNAPSHOT_KEY);
+        if (revisionV3 instanceof LongSupplier revisionFn
+                && snapshotV3 instanceof Supplier<?> snapshotFn) {
+            @SuppressWarnings("unchecked")
+            Supplier<String> typedSnapshot = (Supplier<String>) snapshotFn;
+            revisionSupplier = revisionFn;
+            snapshotSupplier = typedSnapshot;
+            connectedTerritoryMapApiVersion = TERRITORY_MAP_V3_API_VERSION;
+            SpawnSelectorMod.LOGGER.info("Подключён Territory Map war API v{}.", connectedTerritoryMapApiVersion);
+            return true;
         }
 
-        @SuppressWarnings("unchecked")
-        Supplier<String> typedSnapshot = (Supplier<String>) snapshotFn;
-        revisionSupplier = revisionFn;
-        snapshotSupplier = typedSnapshot;
-        return true;
+        Object revisionV1 = objectShare.get(TERRITORY_MAP_V1_REVISION_KEY);
+        Object snapshotV1 = objectShare.get(TERRITORY_MAP_V1_SNAPSHOT_KEY);
+        if (revisionV1 instanceof LongSupplier revisionFn
+                && snapshotV1 instanceof Supplier<?> snapshotFn) {
+            @SuppressWarnings("unchecked")
+            Supplier<String> typedSnapshot = (Supplier<String>) snapshotFn;
+            revisionSupplier = revisionFn;
+            snapshotSupplier = typedSnapshot;
+            connectedTerritoryMapApiVersion = TERRITORY_MAP_V1_API_VERSION;
+            SpawnSelectorMod.LOGGER.info("Подключён устаревший Territory Map war API v1.");
+            return true;
+        }
+
+        logTerritoryApiUnavailableOnce(
+                "Territory Map war API v3/v1 не найден; установите Territory Map 0.5.12 или совместимую сборку.");
+        return false;
     }
 
     private static void logTerritoryApiUnavailableOnce(String message) {
@@ -419,7 +445,7 @@ public final class TerritoryBonuses {
 
     private static String createClientSnapshot(long revision, TerritoryIndex index) {
         JsonObject root = new JsonObject();
-        root.addProperty("api", TERRITORY_MAP_API_VERSION);
+        root.addProperty("api", CLIENT_TERRITORY_SNAPSHOT_VERSION);
         root.addProperty("revision", revision);
         JsonArray territories = new JsonArray();
         for (Map.Entry<TeamDimension, List<ChunkArea>> entry : index.areasByTeam().entrySet()) {
@@ -467,7 +493,7 @@ public final class TerritoryBonuses {
             }
 
             JsonObject snapshot = JsonParser.parseString(joined.toString()).getAsJsonObject();
-            if (!snapshot.has("api") || snapshot.get("api").getAsInt() != TERRITORY_MAP_API_VERSION
+            if (!snapshot.has("api") || snapshot.get("api").getAsInt() != CLIENT_TERRITORY_SNAPSHOT_VERSION
                     || snapshot.get("revision").getAsLong() != revision) {
                 throw new IllegalArgumentException("Неверная ревизия синхронизации территорий.");
             }
@@ -504,7 +530,7 @@ public final class TerritoryBonuses {
     private static String normalizeSide(String raw) {
         if (raw == null) return null;
         String value = raw.trim().toLowerCase(Locale.ROOT);
-        if (value.equals("asia")) value = "avstralia";
+        if (value.equals("asia") || value.equals("australia")) value = "avstralia";
         return value.equals("europe") || value.equals("africa") || value.equals("avstralia") ? value : null;
     }
 
